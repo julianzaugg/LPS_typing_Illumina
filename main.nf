@@ -381,7 +381,7 @@ process snippy {
         script:
         """
 	locus=\$(tail -1 "${kaptive_report}" | cut -f3)
-	ref_gb=\$(grep \${locus:0:2} "${params.reference_LPS_directory}/reference_LPS.txt}" | cut -f2)
+	ref_gb=\$(grep \${locus:0:2} "${params.reference_LPS_directory}/reference_LPS.txt" | cut -f2)
 	ref_gb="${params.reference_LPS_directory}/\$ref_gb"
 	snippy --cpus ${params.snippy_threads} --force --outdir \$PWD --ref \${ref_gb} --R1 ${reads1_trimmed} --R2 ${reads2_trimmed} ${params.snippy_args}
         egrep "^CHROM|frameshift_variant|stop_gained" snps.tab > snps.high_impact.tab
