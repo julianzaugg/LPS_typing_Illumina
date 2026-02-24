@@ -378,16 +378,16 @@ process snippy {
 		tuple path("*snps.tab"), path("*snps.high_impact.tab"), emit: snippy_impact_tab
         when:
         !params.skip_snippy && !params.skip_kaptive3
-        shell:
-        '''
-	locus=`tail -1 !{kaptive_report} | cut -f3`
-	ref_gb=`grep ${locus:0:2} !{params.reference_LPS} | cut -f2`
-	snippy --cpus !{params.snippy_threads} --force --outdir \$PWD --ref $ref_gb --R1 !{reads1_trimmed} --R2 !{reads2_trimmed} !{params.snippy_args}
+        script:
+        """
+	locus=\$(tail -1 "${kaptive_report}" | cut -f3)
+	ref_gb=\$(grep \${locus:0:2} "${params.reference_LPS}" | cut -f2)
+	snippy --cpus ${params.snippy_threads} --force --outdir \$PWD --ref \${ref_gb} --R1 ${reads1_trimmed} --R2 ${reads2_trimmed} ${params.snippy_args}
         egrep "^CHROM|frameshift_variant|stop_gained" snps.tab > snps.high_impact.tab
-	mv snps.high_impact.tab !{sample}_snps.high_impact.tab
-	mv snps.tab !{sample}_snps.tab
+	mv snps.high_impact.tab ${sample}_snps.high_impact.tab
+	mv snps.tab ${sample}_snps.tab
 	cp .command.log snippy.log
-        '''
+        """
 }
 
 process report {
