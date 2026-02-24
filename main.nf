@@ -120,9 +120,9 @@ process shovill {
 		path("*fa")
         script:
         """
-        shovill --outdir \$PWD --R1 ${reads1} --R2 ${reads2} --gsize ${params.genome_size} --force --cpus ${params.shovill_threads} ${params.shovill_args}
+        shovill --outdir \$PWD --R1 ${reads1} --R2 ${reads2} --gsize ${params.genome_size} --force --cpus ${params.shovill_threads} ${params.shovill_args} --ram ${task.memory}
 	mv contigs.fa ${sample}_contigs.fa
-	mv contigs.gfa ${sample}_contigs.gfa
+	mv spades.gfa ${sample}_contigs.gfa
         cp .command.log shovill.log
         """
 }
