@@ -381,7 +381,8 @@ process snippy {
         script:
         """
 	locus=\$(tail -1 "${kaptive_report}" | cut -f3)
-	ref_gb=\$(grep \${locus:0:2} "${params.reference_LPS}" | cut -f2)
+	ref_gb=\$(grep \${locus:0:2} "${params.reference_LPS_directory}/reference_LPS.txt}" | cut -f2)
+	ref_gb="${params.reference_LPS_directory}/\$ref_gb"
 	snippy --cpus ${params.snippy_threads} --force --outdir \$PWD --ref \${ref_gb} --R1 ${reads1_trimmed} --R2 ${reads2_trimmed} ${params.snippy_args}
         egrep "^CHROM|frameshift_variant|stop_gained" snps.tab > snps.high_impact.tab
 	mv snps.high_impact.tab ${sample}_snps.high_impact.tab
@@ -414,7 +415,7 @@ process report {
 					echo \$sample"\t"\$db_LPStype"\t"\$db_subtype"\t"\$db_type"\t"\$db_isolate"\t"\$db_chrom"\t"\$db_pos"\t"\$db_ref"\t"\$db_alt"\t"\$db_gene  >> 10_Illumina_subtype_report.tsv.tmp
 				fi
 			fi
-		done < ${params.subtype_db}
+		done < ${params.reference_LPS_directory}/LPS_subtype_database_v2.txt
 	done < 8_Illumina_snippy_snps.tsv
 	awk -F'\t' 'NR > 1 {split(\$2, a, "-"); gsub("LPS", "L", a[1]); print \$1 "\t" a[1]}' "${kaptive_summary}" > kaptive_tmp
 	cut -f1 10_Illumina_subtype_report.tsv.tmp | grep -v SAMPLE | uniq > list_samples_snippy_exclude
