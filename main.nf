@@ -420,10 +420,14 @@ process report {
 	awk -F'\t' 'NR > 1 {split(\$2, a, "-"); gsub("LPS", "L", a[1]); print \$1 "\t" a[1]}' "${kaptive_summary}" > kaptive_tmp
 	cut -f1 10_Illumina_subtype_report.tsv.tmp | grep -v SAMPLE | uniq > list_samples_snippy_exclude
 	while IFS=\$'\t' read sample_to_exclude; do 
-		grep -v \$sample_to_exclude kaptive_tmp > kaptive_to_keep
+		grep -v \$sample_to_exclude kaptive_tmp > kaptive_to_keep || true
 		mv kaptive_to_keep kaptive_tmp
 	done < list_samples_snippy_exclude
-	awk '{print \$0 "\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA"}' kaptive_tmp > kaptive_to_keep.tsv
+	if [[ -s kaptive_tmp ]]; then
+            awk '{print \$0 "\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA"}' kaptive_tmp > kaptive_to_keep.tsv
+        else
+            touch kaptive_to_keep.tsv
+        fi
 	cat 10_Illumina_subtype_report.tsv.tmp kaptive_to_keep.tsv > 10_Illumina_subtype_report.tsv
 	"""
 }
