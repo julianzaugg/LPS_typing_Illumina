@@ -1,8 +1,8 @@
-LOCUS       GQ444331                4887 bp    DNA     linear   BCT 02-NOV-2009
-DEFINITION  Pasteurella multocida strain M1404 lipopolysaccharide outer core
+LOCUS       L2_M1404_H2                4887 bp    DNA     linear   BCT 02-NOV-2009
+DEFINITION  Pasteurella multocida strain M1404 (GQ444331.1) lipopolysaccharide outer core
             gene locus, complete sequence.
-ACCESSION   GQ444331
-VERSION     GQ444331.1  GI:260182078
+ACCESSION   L2_M1404_H2
+VERSION     L2_M1404_H2
 KEYWORDS    .
 SOURCE      Pasteurella multocida
   ORGANISM  Pasteurella multocida

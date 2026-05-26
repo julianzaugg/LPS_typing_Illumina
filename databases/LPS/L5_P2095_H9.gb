@@ -1,8 +1,8 @@
-LOCUS       JN571483               14320 bp    DNA     linear   BCT 03-MAR-2012
-DEFINITION  Pasteurella multocida strain P2095 outer core biosynthesis gene
+LOCUS       L5_P2095_H9               14320 bp    DNA     linear   BCT 03-MAR-2012
+DEFINITION  Pasteurella multocida strain P2095 (JN571483.1) outer core biosynthesis gene
             cluster, complete sequence.
-ACCESSION   JN571483
-VERSION     JN571483.1
+ACCESSION   L5_P2095_H9
+VERSION     L5_P2095_H9
 KEYWORDS    .
 SOURCE      Pasteurella multocida
   ORGANISM  Pasteurella multocida

@@ -1,8 +1,8 @@
-LOCUS       JX987237                6955 bp    DNA     linear   BCT 09-APR-2013
-DEFINITION  Pasteurella multocida strain P1581 LPS outer core biosynthesis gene
+LOCUS       L7_P1581_H8                6955 bp    DNA     linear   BCT 09-APR-2013
+DEFINITION  Pasteurella multocida strain P1581 (JX987237.1) LPS outer core biosynthesis gene
             locus, complete sequence.
-ACCESSION   JX987237
-VERSION     JX987237.1
+ACCESSION   L7_P1581_H8
+VERSION     L7_P1581_H8
 KEYWORDS    .
 SOURCE      Pasteurella multocida
   ORGANISM  Pasteurella multocida

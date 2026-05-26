@@ -1,7 +1,7 @@
-LOCUS       CP133636_LPS               6891 bp    DNA     linear   BCT 05-JAN-2024
-DEFINITION  Pasteurella multocida strain Past29 chromosome, complete genome.
-ACCESSION   CP133636 REGION: 13721..20611
-VERSION     CP133636.1
+LOCUS       L9_Past29_LPS                6891 bp    DNA     linear   BCT 05-JAN-2024
+DEFINITION  Pasteurella multocida strain Past29 (CP133636.1) chromosome, complete genome.
+ACCESSION   L9_Past29_LPS
+VERSION     L9_Past29_LPS
 DBLINK      BioProject: PRJNA1019462
             BioSample: SAMN36698655
 KEYWORDS    .
@@ -72,10 +72,10 @@ FEATURES             Location/Qualifiers
                      /lat_lon="37.92 S 145.12 E"
                      /collection_date="2019-02-06"
                      /collected_by="Monash Medical Centre"
-     gene            <1..56
+     gene            1..56
                      /gene="mutM"
                      /locus_tag="RFF10_00085"
-     CDS             <1..56
+     CDS             1..56
                      /gene="mutM"
                      /locus_tag="RFF10_00085"
                      /EC_number="3.2.2.23"
@@ -83,23 +83,7 @@ FEATURES             Location/Qualifiers
                      /inference="COORDINATES: similar to AA
                      sequence:RefSeq:WP_014325685.1"
                      /note="Derived by automated computational analysis using
-                     gene prediction method: Protein Homology.
-                     GO_function: GO:0003676 - nucleic acid binding [Evidence
-                     IEA];
-                     GO_function: GO:0003684 - damaged DNA binding [Evidence
-                     IEA];
-                     GO_function: GO:0003906 - DNA-(apurinic or apyrimidinic
-                     site) endonuclease activity [Evidence IEA];
-                     GO_function: GO:0008270 - zinc ion binding [Evidence IEA];
-                     GO_function: GO:0008534 - oxidized purine nucleobase
-                     lesion DNA N-glycosylase activity [Evidence IEA];
-                     GO_function: GO:0016799 - hydrolase activity, hydrolyzing
-                     N-glycosyl compounds [Evidence IEA];
-                     GO_function: GO:0019104 - DNA N-glycosylase activity
-                     [Evidence IEA];
-                     GO_process: GO:0006281 - DNA repair [Evidence IEA];
-                     GO_process: GO:0006284 - base-excision repair [Evidence
-                     IEA]"
+                     gene prediction method: Protein Homology"
                      /codon_start=3
                      /transl_table=11
                      /product="bifunctional DNA-formamidopyrimidine
@@ -112,9 +96,9 @@ FEATURES             Location/Qualifiers
                      DFLQPDGRPGYFVQELRVYGNKDKPCPTCGTKIESLVIGQRNSFYCPKCQKR"
      gene            complement(59..1090)
                      /locus_tag="RFF10_00090"
-		     /gene="hptE"
+		                 /gene="hptE"
      CDS             complement(59..1090)
-	             /gene="hptE"
+	                   /gene="hptE"
                      /locus_tag="RFF10_00090"
                      /inference="COORDINATES: similar to AA
                      sequence:RefSeq:WP_014667771.1"
@@ -133,9 +117,9 @@ FEATURES             Location/Qualifiers
                      QIDPAWLVK"
      gene            complement(1093..1761)
                      /locus_tag="RFF10_00095"
-		     /gene="gctD" 
+		                 /gene="gctD" 
      CDS             complement(1093..1761)
-		     /gene="gctD" 
+		                 /gene="gctD" 
                      /locus_tag="RFF10_00095"
                      /inference="COORDINATES: similar to AA
                      sequence:RefSeq:WP_005717514.1"

@@ -1,9 +1,9 @@
-LOCUS       KM670448                7055 bp    DNA     linear   BCT 22-OCT-2014
-DEFINITION  Pasteurella multocida subsp. multocida strain P2723 serovar
+LOCUS       L8_P2723_H16                7055 bp    DNA     linear   BCT 22-OCT-2014
+DEFINITION  Pasteurella multocida subsp. multocida strain P2723 (KM670448.1) serovar
             Heddleston 16 LPS outer core biosynthesis locus L8 genomic
             sequence.
-ACCESSION   KM670448
-VERSION     KM670448.1
+ACCESSION   L8_P2723_H16
+VERSION     L8_P2723_H16
 KEYWORDS    .
 SOURCE      Pasteurella multocida subsp. multocida
   ORGANISM  Pasteurella multocida subsp. multocida

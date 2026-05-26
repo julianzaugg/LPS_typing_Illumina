@@ -1,8 +1,8 @@
-LOCUS       HQ873311                5573 bp    DNA     linear   BCT 16-MAY-2011
-DEFINITION  Pasteurella multocida strain X73 lipopolysaccharide outer core
+LOCUS       L1_X73_H1                5573 bp    DNA     linear   BCT 16-MAY-2011
+DEFINITION  Pasteurella multocida strain X73 (HQ873311.1) lipopolysaccharide outer core
             locus genomic sequence.
-ACCESSION   HQ873311
-VERSION     HQ873311.1
+ACCESSION   L1_X73_H1
+VERSION     L1_X73_H1
 KEYWORDS    .
 SOURCE      Pasteurella multocida
   ORGANISM  Pasteurella multocida
@@ -29,10 +29,7 @@ FEATURES             Location/Qualifiers
                      /serotype="1"
                      /serovar="1"
                      /db_xref="taxon:747"
-                     /note="serogroup: A"
-     misc_feature    1..5573
-                     /note="lipopolysaccharide outer core locus; LPS outer core
-                     locus"
+                     /note="Updated by Lida Omaleki in March 2026"
      gene            195..407
                      /gene="rpl31_2"
      CDS             195..407

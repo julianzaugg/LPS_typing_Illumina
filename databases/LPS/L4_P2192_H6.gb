@@ -1,8 +1,8 @@
-LOCUS       KM670447                6965 bp    DNA     linear   BCT 22-OCT-2014
-DEFINITION  Pasteurella multocida subsp. multocida strain P2192 serovar
+LOCUS       L4_P2192_H6                6965 bp    DNA     linear   BCT 22-OCT-2014
+DEFINITION  Pasteurella multocida subsp. multocida strain P2192 (KM670447.1) serovar
             Heddleston 6 LPS outer core biosynthesis locus L4 genomic sequence.
-ACCESSION   KM670447
-VERSION     KM670447.1  GI:698029665
+ACCESSION   L4_P2192_H6
+VERSION     L4_P2192_H6
 KEYWORDS    .
 SOURCE      Pasteurella multocida subsp. multocida
   ORGANISM  Pasteurella multocida subsp. multocida
