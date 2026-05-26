@@ -49,7 +49,11 @@ The LPS type of the sample is obtained using the software [Kaptive](https://kapt
 
 The software [mlst](https://github.com/tseemann/mlst) is used to scan the genome assemblies against the  PubMLST typing scheme "pmultocida_2" by default (RIRDC). The typing scheme can be modified by specifying the parameter --mlst_scheme (e.g. --mlst_scheme "pmultocida"). 
 
-### 10.  LPS subtype report
+### 10. petG detection
+
+The pipeline uses [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) v2.17.0 to search the genome assembly for petG using the reference sequence petG_X73_NZ_CM001580.fasta from the LPS reference directory. petG is reported as present when a hit has a genomic span greater than 1570 bp and percent identity greater than or equal to 95%.
+
+### 11.  LPS subtype report
 
 The pipeline generates a subtype report file (10_Illumina_subtype_report.tsv) summarising the variants found in the [subtype database](https://github.com/vmurigneu/LPS_typing_Illumina/tree/main/databases/LPS/LPS_subtype_database_v2.txt). To be reported, the variant identified by snippy must be present in the subtype database with the following conditions:
 - the variant must be identified at the same position in the same reference sequence and
@@ -57,11 +61,13 @@ The pipeline generates a subtype report file (10_Illumina_subtype_report.tsv) su
 
 When phenotype columns are present in the subtype database, the report also assigns the corresponding LPS phenotype and, if available, its description from phenotype_lookup.tsv. Older subtype database files without phenotype columns remain supported and produce blank phenotype fields.
 
-### 11. 	Genome annotation using Bakta
+The final subtype report also includes the MLST sequence type and petG presence result for each sample when those steps are run.
+
+### 12. 	Genome annotation using Bakta
 
 The software [Bakta](https://github.com/oschwengers/bakta) is used to annotate the genome assemblies. The default database is v6.0 from 2025-02-24, https://zenodo.org/records/14916843.    
 
-### 12. 	Antimicrobial Resistance genes
+### 13. 	Antimicrobial Resistance genes
 
 The software [AMRFinderPlus](https://github.com/ncbi/amr) is used to identify AMR genes in the genome assemblies. The default database is the version 2025-03-25.1 that was downloaded using the command amrfinder_update.  
 
@@ -191,23 +197,30 @@ Some parameters can be added to the command line in order to include or skip som
 * `--skip_snippy`: skip the variant calling Snippy pipeline (default=false)
 * `--snippy_threads`: number of threads for the Snippy pipeline (default=6)
 * `--snippy_args`: Snippy optional parameters (default="")
-* `--reference_LPS_directory`: path to the directory containing the LPS reference files, reference_LPS.txt, and subtype database (default="../../../databases/LPS")
+* `--reference_LPS_directory`: path to the directory containing the LPS reference files, reference_LPS.txt, subtype database, and petG_X73_NZ_CM001580.fasta (default="../../../databases/LPS")
 
 9. MLST typing:
 * `--skip_mlst`: skip the MLST typing step (default=false)
 * `--mlst_scheme`: MLST typing scheme (default="pmultocida_2")
 
-10. Report:
+10. petG detection:
+* `--skip_petg`: skip petG detection with BLAST (default=false)
+* `--petg_threads`: number of threads for the petG BLAST step (default=2)
+* `--petg_min_length`: minimum genomic hit span for petG presence; hits must be greater than this value (default=1570)
+* `--petg_min_identity`: minimum percent identity for petG presence (default=95)
+* The petG BLAST step uses the container docker://quay.io/biocontainers/blast:2.17.0--h66d330f_0.
+
+11. Report:
 * The subtype report uses LPS_subtype_database_v2.txt from `--reference_LPS_directory` and, when present, phenotype_lookup.tsv from the same directory.
 
-11. Genome annotation using Bakta:
+12. Genome annotation using Bakta:
 * `--skip_bakta`: skip the genome annotation step (default=false)
 * `--bakta_threads`: number of threads for the Bakta step (default=8)  
 * `--bakta_db`: path to the Bakta database files (default="../../../databases/bakta_db/db")
 * `--download_bakta_db`: download the latest Bakta database using the command *bakta_db download* (default=false)
 * `--bakta_args`: Bakta optional parameters (default="--proteins ../../../databases/LPS/NC_002663_LPS.gb")  
 
-12. AMR genes identification using AMRFinderPlus:
+13. AMR genes identification using AMRFinderPlus:
 * `--skip_amrfinder`: skip the AMR genes identification step (default=false)
 * `--amrfinder_db`: path to the AMRFinderPlus database files (default="../../../databases/amrfinderplus/amrfinderplus_db/latest")
 * `--download_amrfinder_db`: download the latest AMRFinderPlus database using the command *amrfinder_update* (default=false)
@@ -243,6 +256,11 @@ Each sample folder will contain the following folders:
     * Summary of variants in tabular format (sample_id_snps.tab)
     * Summary of high impact variants (frameshift_variant and stop_gained) in tabular format (sample_id_snps.high_impact.tab)
 * **9_mlst:** MLST typing output file (sample_id_mlst_pmultocida_rirdc.csv) 
+* **13_petG:** petG BLAST output files:
+    * BLAST tabular output for all hits (sample_id_petG_blast.tsv)
+    * BLAST tabular output for accepted hits (sample_id_petG_blast.filtered.tsv)
+    * FASTA sequences for accepted hits (sample_id_petG_hits.fasta)
+    * petG presence summary (sample_id_petG_summary.tsv)
 * **10_report:** Summary of results for all samples
     * MultiQC report in html format (2_Illumina_multiqc_report.html) and general statistics in tabular format (2_Illumina_multiqc_general_stats.txt)
     * Shovill assembly statistics: assembly coverage, number of contigs, assembly size (3_Illumina_shovill_stats.tsv) 
@@ -258,6 +276,7 @@ Each sample folder will contain the following folders:
     * MLST results (9_Illumina_mlst.csv)  
     * Subtype results summarising the variants found in the subtype database (10_Illumina_subtype_report.tsv). The columns in this file represents:
         - SAMPLE: sample identifier (sample_id in the samplesheet)  
+        - MLST: MLST sequence type
         - TYPE: LPS type assigned by Kaptive  
         - SUBTYPE: LPS subtype assigned by the pipeline (using the subtype database)    
         - VARTYPE: description of the variant   
@@ -269,6 +288,7 @@ Each sample folder will contain the following folders:
         - GENE: gene containing the variant  
         - PHENOTYPE: LPS phenotype assigned from the subtype database, when available
         - PHENOTYPE_DESCRIPTION: description of the assigned LPS phenotype, when available in phenotype_lookup.tsv
+        - PETG_PRESENT: petG presence from BLAST (`yes` when present, blank otherwise)
         - NOTE: subtype database note for the matched variant, when available
     * AMRFinderPlus results (12_Illumina_amrfinder.tsv)
 * **11_bakta:** Bakta genome annotation output files. The output files are described [here](https://github.com/oschwengers/bakta?tab=readme-ov-file#output) and include:  
