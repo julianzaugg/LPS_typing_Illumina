@@ -51,9 +51,11 @@ The software [mlst](https://github.com/tseemann/mlst) is used to scan the genome
 
 ### 10.  LPS subtype report
 
-The pipeline generates a subtype report file (10_Illumina_subtype_report.tsv) summarising the variants found in the [subtype database](https://github.com/vmurigneu/LPS_typing_Illumina/tree/main/databases/LPS/LPS_subtype_database_v1.txt). To be reported, the variant identified by snippy must be present in the subtype database with the following conditions:  
+The pipeline generates a subtype report file (10_Illumina_subtype_report.tsv) summarising the variants found in the [subtype database](https://github.com/vmurigneu/LPS_typing_Illumina/tree/main/databases/LPS/LPS_subtype_database_v2.txt). To be reported, the variant identified by snippy must be present in the subtype database with the following conditions:
 - the variant must be identified at the same position in the same reference sequence and
 - both the reference allele and the alternate allele must be matching their corresponding allele from the variant in the database.  
+
+When phenotype columns are present in the subtype database, the report also assigns the corresponding LPS phenotype and, if available, its description from phenotype_lookup.tsv. Older subtype database files without phenotype columns remain supported and produce blank phenotype fields.
 
 ### 11. 	Genome annotation using Bakta
 
@@ -187,14 +189,14 @@ Some parameters can be added to the command line in order to include or skip som
 * `--skip_snippy`: skip the variant calling Snippy pipeline (default=false)
 * `--snippy_threads`: number of threads for the Snippy pipeline (default=6)
 * `--snippy_args`: Snippy optional parameters (default="")
-* `--reference_LPS`: path to the file summarising the reference LPS sequence files (default="../../../databases/LPS/reference_LPS.txt")
+* `--reference_LPS_directory`: path to the directory containing the LPS reference files, reference_LPS.txt, and subtype database (default="../../../databases/LPS")
 
 9. MLST typing:
 * `--skip_mlst`: skip the MLST typing step (default=false)
 * `--mlst_scheme`: MLST typing scheme (default="pmultocida_2")
 
 10. Report:
-* `--subtype_db`: path to the subtype database file (default="../../../databases/LPS/LPS_subtype_database_v1.txt")
+* The subtype report uses LPS_subtype_database_v2.txt from `--reference_LPS_directory` and, when present, phenotype_lookup.tsv from the same directory.
 
 11. Genome annotation using Bakta:
 * `--skip_bakta`: skip the genome annotation step (default=false)
@@ -263,6 +265,9 @@ Each sample folder will contain the following folders:
         - REF: reference allele sequence present in the LPS reference sequence  
         - ALT: alternate allele sequence identified in the sample  
         - GENE: gene containing the variant  
+        - PHENOTYPE: LPS phenotype assigned from the subtype database, when available
+        - PHENOTYPE_DESCRIPTION: description of the assigned LPS phenotype, when available in phenotype_lookup.tsv
+        - NOTE: subtype database note for the matched variant, when available
     * AMRFinderPlus results (12_Illumina_amrfinder.tsv)
 * **11_bakta:** Bakta genome annotation output files. The output files are described [here](https://github.com/oschwengers/bakta?tab=readme-ov-file#output) and include:  
     * Annotations & sequences in (multi) GenBank format (sample_id_bakta.gbff)  

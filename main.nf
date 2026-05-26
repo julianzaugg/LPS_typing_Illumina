@@ -407,27 +407,113 @@ process report {
 	cat header_snippy 8_snippy_snps.high_impact.tsv.tmp > 8_Illumina_snippy_snps.high_impact.tsv
 	for file in `ls *_snps.tab`; do fileName=\$(basename \$file); sample=\${fileName%%_snps.tab}; grep -v EVIDENCE \$file | sed s/^/\${sample}\\\t/  >> 8_snippy_snps.tsv.tmp; done
 	cat header_snippy 8_snippy_snps.tsv.tmp > 8_Illumina_snippy_snps.tsv
-	echo -e SAMPLE\\\tTYPE\\\tSUBTYPE\\\tVARTYPE\\\tISOLATE_DATABASE\\\tCHROM\\\tPOS\\\tREF\\\tALT\\\tGENE >> 10_Illumina_subtype_report.tsv.tmp
-	while IFS=\$'\t' read sample chrom pos type ref alt evidence ftype strand nt_pos aa_pos effect locus_tag gene product; do
-		while IFS=\$'\t' read db_LPStype db_subtype db_isolate db_chrom db_pos db_type db_ref db_alt db_gene db_note; do 
-			if [[ \$chrom == \$db_chrom && \$pos == \$db_pos && \$ref == \$db_ref && \$alt == \$db_alt ]]; then
-				if [[ \$sample != "sampleID" ]]; then
-					echo \$sample"\t"\$db_LPStype"\t"\$db_subtype"\t"\$db_type"\t"\$db_isolate"\t"\$db_chrom"\t"\$db_pos"\t"\$db_ref"\t"\$db_alt"\t"\$db_gene"\t"\$db_note  >> 10_Illumina_subtype_report.tsv.tmp
-				fi
-			fi
-		done < ${params.reference_LPS_directory}/LPS_subtype_database_v2.txt
-	done < 8_Illumina_snippy_snps.tsv
+	subtype_db="${params.reference_LPS_directory}/LPS_subtype_database_v2.txt"
+	phenotype_lookup="${params.reference_LPS_directory}/phenotype_lookup.tsv"
+	if [[ -f "\$phenotype_lookup" ]]; then
+		phenotype_lookup_input="\$phenotype_lookup"
+	else
+		touch phenotype_lookup_empty.tsv
+		phenotype_lookup_input="phenotype_lookup_empty.tsv"
+	fi
+
+	awk -F '\\t' -v OFS='\\t' -v subtype_db="\$subtype_db" -v phenotype_lookup="\$phenotype_lookup_input" '
+	function set_header_fields(    i) {
+		for (i = 1; i <= NF; i++) {
+			header[\$i] = i
+		}
+		db_type_col = ("TYPE" in header) ? header["TYPE"] : 1
+		db_subtype_col = ("SUBTYPE" in header) ? header["SUBTYPE"] : 2
+		db_isolate_col = ("ISOLATE" in header) ? header["ISOLATE"] : 3
+		db_chrom_col = ("CHROM" in header) ? header["CHROM"] : 4
+		db_pos_col = ("POS" in header) ? header["POS"] : 5
+		db_vartype_col = ("VARTYPE" in header) ? header["VARTYPE"] : 6
+		db_ref_col = ("REF" in header) ? header["REF"] : 7
+		db_alt_col = ("ALT" in header) ? header["ALT"] : 8
+		db_gene_col = ("GENE" in header) ? header["GENE"] : 9
+		db_pheno_default_col = ("PHENOTYPE_DEFAULT" in header) ? header["PHENOTYPE_DEFAULT"] : 0
+		db_pheno_multi_col = ("PHENOTYPE_MULTIPLE_SUBTYPES" in header) ? header["PHENOTYPE_MULTIPLE_SUBTYPES"] : 0
+		db_note_col = ("NOTE" in header) ? header["NOTE"] : 10
+	}
+	function field_value(col) {
+		return (col > 0 && col <= NF) ? \$col : ""
+	}
+	function clean_phenotype(value) {
+		return (value == "NA") ? "" : value
+	}
+	function phenotype_from_rule(type, rule, parts) {
+		if (rule == "" || rule == "NA") {
+			return ""
+		}
+		split(rule, parts, "_")
+		return (parts[2] == "") ? rule : type "_" parts[2]
+	}
+	function choose_phenotype(sample, type, default_phenotype, multi_phenotypes, rules, i, parts) {
+		default_phenotype = clean_phenotype(default_phenotype)
+		if (multi_phenotypes != "" && multi_phenotypes != "NA") {
+			rule_count = split(multi_phenotypes, rules, ";")
+			for (i = 1; i <= rule_count; i++) {
+				split(rules[i], parts, "_")
+				if (parts[1] != "" && ((sample SUBSEP parts[1]) in sample_subtype)) {
+					return phenotype_from_rule(type, rules[i])
+				}
+			}
+		}
+		return default_phenotype
+	}
+	FILENAME == subtype_db {
+		if (FNR == 1) {
+			set_header_fields()
+			next
+		}
+		key = field_value(db_chrom_col) OFS field_value(db_pos_col) OFS field_value(db_ref_col) OFS field_value(db_alt_col)
+		db_count[key]++
+		idx = key SUBSEP db_count[key]
+		db_type[idx] = field_value(db_type_col)
+		db_subtype[idx] = field_value(db_subtype_col)
+		db_isolate[idx] = field_value(db_isolate_col)
+		db_chrom[idx] = field_value(db_chrom_col)
+		db_pos[idx] = field_value(db_pos_col)
+		db_vartype[idx] = field_value(db_vartype_col)
+		db_ref[idx] = field_value(db_ref_col)
+		db_alt[idx] = field_value(db_alt_col)
+		db_gene[idx] = field_value(db_gene_col)
+		db_pheno_default[idx] = field_value(db_pheno_default_col)
+		db_pheno_multi[idx] = field_value(db_pheno_multi_col)
+		db_note[idx] = field_value(db_note_col)
+		next
+	}
+	FILENAME == phenotype_lookup {
+		if (FNR > 1 && \$1 != "") {
+			phenotype_description[\$1] = \$2
+		}
+		next
+	}
+	FNR > 1 {
+		sample = \$1
+		key = \$2 OFS \$3 OFS \$5 OFS \$6
+		for (i = 1; i <= db_count[key]; i++) {
+			idx = key SUBSEP i
+			row_count++
+			row_sample[row_count] = sample
+			row_idx[row_count] = idx
+			sample_subtype[sample SUBSEP db_subtype[idx]] = 1
+		}
+	}
+	END {
+		print "SAMPLE", "TYPE", "SUBTYPE", "VARTYPE", "ISOLATE_DATABASE", "CHROM", "POS", "REF", "ALT", "GENE", "PHENOTYPE", "PHENOTYPE_DESCRIPTION", "NOTE"
+		for (i = 1; i <= row_count; i++) {
+			sample = row_sample[i]
+			idx = row_idx[i]
+			phenotype = choose_phenotype(sample, db_type[idx], db_pheno_default[idx], db_pheno_multi[idx])
+			description = (phenotype in phenotype_description) ? phenotype_description[phenotype] : ""
+			print sample, db_type[idx], db_subtype[idx], db_vartype[idx], db_isolate[idx], db_chrom[idx], db_pos[idx], db_ref[idx], db_alt[idx], db_gene[idx], phenotype, description, db_note[idx]
+		}
+	}
+	' "\$subtype_db" "\$phenotype_lookup_input" 8_Illumina_snippy_snps.tsv > 10_Illumina_subtype_report.tsv.tmp
 	awk -F'\t' 'NR > 1 {split(\$2, a, "-"); gsub("LPS", "L", a[1]); print \$1 "\t" a[1]}' "${kaptive_summary}" > kaptive_tmp
-	cut -f1 10_Illumina_subtype_report.tsv.tmp | grep -v SAMPLE | uniq > list_samples_snippy_exclude
-	while IFS=\$'\t' read sample_to_exclude; do 
-		grep -v \$sample_to_exclude kaptive_tmp > kaptive_to_keep || true
-		mv kaptive_to_keep kaptive_tmp
-	done < list_samples_snippy_exclude
-	if [[ -s kaptive_tmp ]]; then
-            awk '{print \$0 "\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA"}' kaptive_tmp > kaptive_to_keep.tsv
-        else
-            touch kaptive_to_keep.tsv
-        fi
+	awk -F'\t' 'NR > 1 {print \$1}' 10_Illumina_subtype_report.tsv.tmp | sort | uniq > list_samples_snippy_exclude
+	awk -F'\t' 'NR == FNR {exclude[\$1] = 1; next} !(\$1 in exclude)' list_samples_snippy_exclude kaptive_tmp > kaptive_to_keep
+	awk -F'\t' -v OFS='\t' '{print \$1, \$2, "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "", "", ""}' kaptive_to_keep > kaptive_to_keep.tsv
 	cat 10_Illumina_subtype_report.tsv.tmp kaptive_to_keep.tsv > 10_Illumina_subtype_report.tsv
 	"""
 }
