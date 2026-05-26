@@ -30,5 +30,4 @@ fqdir=${dir}/fastq
 #cp /QRISdata/Q2313/AGRF-raw-Illumina/AGRF_CAGRF24030272-2_22VH7WLT3/*fastq.gz ${fqdir}
 
 #Run the pipeline (-resume is used to restart the pipeline if it fails)
-nextflow main.nf --outdir ${out_dir} --fqdir ${fqdir} --samplesheet ${samplesheet} -resume
-
+nextflow main.nf -profile singularity --outdir ${out_dir} --fqdir ${fqdir} --samplesheet ${samplesheet} -resume

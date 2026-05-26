@@ -83,7 +83,7 @@ It will create a repository called "LPS_typing_Illumina". The following three fi
 
 When a Nexflow pipeline script is launched, Nextflow looks for a file named **nextflow.config** in the current directory. The configuration file defines default parameters values for the pipeline and cluster settings such as the executor (e.g. "slurm", "local") and queues to be used (https://www.nextflow.io/docs/latest/config.html).  
 
-The pipeline uses separated Singularity containers for all processes. Nextflow will automatically pull the singularity images required to run the pipeline and cache those images in the singularity directory in the pipeline work directory by default or in the singularity.cacheDir specified in the nextflow.config file ([see documentation](https://www.nextflow.io/docs/latest/singularity.html)). Ensure that you have sufficient space in your assigned singularity directory as images can be large.   
+The pipeline uses separate containers for all processes. Select a container engine with `-profile singularity` or `-profile apptainer`. Nextflow will automatically pull the images required to run the pipeline and cache those images in the singularity directory in the pipeline work directory by default or in the cacheDir specified in the selected profile in nextflow.config ([Singularity documentation](https://www.nextflow.io/docs/latest/singularity.html), [Apptainer documentation](https://www.nextflow.io/docs/latest/container.html#apptainer)). Ensure that you have sufficient space in your assigned container cache directory as images can be large.
 
 An example configuration file can be found [here](https://github.com/vmurigneu/LPS_typing_Illumina/blob/main/nextflow.config). 
 
@@ -132,8 +132,10 @@ PM3065,fastq/3_22VH7WLT3_GCAATATTCA-GGCGCCAATT_L002_R1.fastq.gz,fastq/3_22VH7WLT
 
 **4) Run the pipeline**
 
-The pipeline will be launched on the HPC Bunya using the bash script nextflow.sh. The command to start the pipeline is:  
-`nextflow main.nf --samplesheet /path/to/samples.csv --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/ --slurm_account 'account' `
+The pipeline will be launched on the HPC Bunya using the bash script nextflow.sh. The command to start the pipeline with Singularity is:
+`nextflow main.nf -profile singularity --samplesheet /path/to/samples.csv --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/ --slurm_account 'account' `
+
+On systems using Apptainer, use `-profile apptainer` instead of `-profile singularity`.
 
 ```
 --samplesheet: path to the samplesheet file
@@ -143,7 +145,7 @@ The pipeline will be launched on the HPC Bunya using the bash script nextflow.sh
 ```
 
 Note: To run the assembly and assembly metrics steps only (skip LPS typing and variant calling):  
-`nextflow main.nf --samplesheet /path/to/samples.csv --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/ --slurm_account 'account' --skip_kaptive3 --skip_snippy`
+`nextflow main.nf -profile singularity --samplesheet /path/to/samples.csv --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/ --slurm_account 'account' --skip_kaptive3 --skip_snippy`
 
 Once the nextflow.sh file is ready, the user can submit the pipeline on Bunya using the command:
 ```
