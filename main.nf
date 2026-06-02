@@ -647,7 +647,7 @@ process report {
 	}
 	' "\$subtype_db" "\$phenotype_lookup_input" petg_lookup.tsv mlst_lookup.tsv kaptive_tmp 8_Illumina_snippy_snps.tsv > 10_Illumina_subtype_report.tsv.tmp
 	awk -F'\t' 'NR > 1 {print \$1}' 10_Illumina_subtype_report.tsv.tmp | sort | uniq > list_samples_snippy_exclude
-	awk -F'\t' 'NR == FNR {exclude[\$1] = 1; next} !(\$1 in exclude)' list_samples_snippy_exclude kaptive_tmp > kaptive_to_keep
+	awk -F'\t' 'FILENAME == ARGV[1] {exclude[\$1] = 1; next} !(\$1 in exclude)' list_samples_snippy_exclude kaptive_tmp > kaptive_to_keep
 	awk -F'\t' -v OFS='\t' '
 	FILENAME == "mlst_lookup.tsv" {
 		if (FNR > 1 && \$1 != "") {
