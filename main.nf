@@ -617,14 +617,14 @@ process report {
 		}
 	}
 	' "\$subtype_db" "\$phenotype_lookup_input" petg_lookup.tsv mlst_lookup.tsv 8_Illumina_snippy_snps.tsv > 10_Illumina_subtype_report.tsv.tmp
-	awk -F'\t' '
+	awk -F'\t' -v OFS='\t' '
 	NR > 1 {
 		if (\$4 == "Typeable") {
 			split(\$2, a, "-")
 			gsub("LPS", "L", a[1])
-			print \$1 "\t" a[1]
+			print \$1, a[1]
 		} else {
-			print \$1 "\tuntypeable"
+			print \$1, "untypeable"
 		}
 	}' "${kaptive_summary}" > kaptive_tmp
 	awk -F'\t' 'NR > 1 {print \$1}' 10_Illumina_subtype_report.tsv.tmp | sort | uniq > list_samples_snippy_exclude
