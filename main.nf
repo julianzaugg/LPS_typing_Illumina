@@ -531,7 +531,7 @@ process report {
 		phenotype_lookup_input="phenotype_lookup_empty.tsv"
 	fi
 
-	awk -F '\\t' -v OFS='\\t' -v subtype_db="\$subtype_db" -v phenotype_lookup="\$phenotype_lookup_input" -v petg_lookup="petg_lookup.tsv" -v mlst_lookup="mlst_lookup.tsv" -v kaptive_lookup="kaptive_tmp" '
+	awk -F '\\t' -v OFS='\\t' -v subtype_db="\$subtype_db" -v phenotype_lookup="\$phenotype_lookup_input" -v petg_lookup="petg_lookup.tsv" -v mlst_lookup="mlst_lookup.tsv" '
 	function set_header_fields(    i) {
 		for (i = 1; i <= NF; i++) {
 			header[\$i] = i
@@ -615,17 +615,8 @@ process report {
 		}
 		next
 	}
-	FILENAME == kaptive_lookup {
-		if (\$1 != "") {
-			kaptive_type[\$1] = \$2
-		}
-		next
-	}
 	FNR > 1 {
 		sample = \$1
-		if ((sample in kaptive_type) && kaptive_type[sample] == "untypeable") {
-			next
-		}
 		key = \$2 OFS \$3 OFS \$5 OFS \$6
 		for (i = 1; i <= db_count[key]; i++) {
 			idx = key SUBSEP i
@@ -645,7 +636,7 @@ process report {
 			print sample, mlst_st[sample], db_type[idx], db_subtype[idx], db_vartype[idx], db_isolate[idx], db_chrom[idx], db_pos[idx], db_ref[idx], db_alt[idx], db_gene[idx], phenotype, description, petg_present[sample], db_note[idx]
 		}
 	}
-	' "\$subtype_db" "\$phenotype_lookup_input" petg_lookup.tsv mlst_lookup.tsv kaptive_tmp 8_Illumina_snippy_snps.tsv > 10_Illumina_subtype_report.tsv.tmp
+	' "\$subtype_db" "\$phenotype_lookup_input" petg_lookup.tsv mlst_lookup.tsv 8_Illumina_snippy_snps.tsv > 10_Illumina_subtype_report.tsv.tmp
 	awk -F'\t' 'NR > 1 {print \$1}' 10_Illumina_subtype_report.tsv.tmp | sort | uniq > list_samples_snippy_exclude
 	awk -F'\t' 'FILENAME == ARGV[1] {exclude[\$1] = 1; next} !(\$1 in exclude)' list_samples_snippy_exclude kaptive_tmp > kaptive_to_keep
 	awk -F'\t' -v OFS='\t' '
