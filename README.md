@@ -18,7 +18,7 @@ Bioinformatics pipeline for *Pasteurella multocida* LPS typing using Illumina se
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/vmurigneu/LPS_typing_Illumina.git
+git clone https://github.com/julianzaugg/LPS_typing_Illumina.git
 cd LPS_typing_Illumina
 
 # 2. Obtain large databases (see Database setup below)
@@ -106,7 +106,7 @@ When phenotype columns are present in the subtype database, the report assigns t
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/vmurigneu/LPS_typing_Illumina.git
+git clone https://github.com/julianzaugg/LPS_typing_Illumina.git
 cd LPS_typing_Illumina
 ```
 
