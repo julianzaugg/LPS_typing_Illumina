@@ -52,6 +52,8 @@ process fastp {
 		tuple val(sample), path(reads1), path(reads2), path("R1_trimmed.fastq.gz"), path("R2_trimmed.fastq.gz"),  emit: trimmed_fastq
 		path("fastp.log")
 		path("*fastq.gz")
+	when:
+	!params.skip_fastp
 	script:
 	"""
 	fastp -i ${reads1} -I ${reads2} -o R1_trimmed.fastq.gz -O R2_trimmed.fastq.gz
@@ -188,7 +190,7 @@ process summary_quast {
 }
 
 process download_checkm_db {
-	publishDir "$params.outdir/../databases/",  mode: 'copy'
+	publishDir "${projectDir}/databases/",  mode: 'copy'
 	output:
 		path("checkm_data_2015_01_16"), emit: checkm_db_folder
 	when:
@@ -242,7 +244,7 @@ process summary_checkm {
 }
 
 process download_kraken_db {
-	publishDir "$params.outdir/../databases/",  mode: 'copy'
+	publishDir "${projectDir}/databases/",  mode: 'copy'
 	output:
 		path("k2_pluspf_20240605"), emit: kraken_db_folder
 	when:
@@ -696,7 +698,7 @@ process summary_mlst {
 }
 
 process download_bakta_db {
-    publishDir "$params.outdir/../databases/",  mode: 'copy'
+    publishDir "${projectDir}/databases/",  mode: 'copy'
     output:
         path("bakta_db"), emit: bakta_db_folder
     when:
@@ -727,7 +729,7 @@ process bakta {
 }
 
 process download_amrfinder_db {
-	publishDir "$params.outdir/../databases/amrfinderplus",  mode: 'copy'
+	publishDir "${projectDir}/databases/amrfinderplus",  mode: 'copy'
 	output:
 		path("amrfinderplus_db"), emit: amrfinder_db_folder
 	when:
@@ -781,30 +783,38 @@ workflow {
 	.set { ch_samplesheet_illumina }
 	ch_samplesheet_illumina.view()
 	fastp(ch_samplesheet_illumina)
-	fastqc(fastp.out.trimmed_fastq)
+	// When skip_fastp is true, pass raw reads through as if they were trimmed
+	ch_trimmed = params.skip_fastp
+		? ch_samplesheet_illumina.map { sample, r1, r2 -> tuple(sample, r1, r2, r1, r2) }
+		: fastp.out.trimmed_fastq
+	fastqc(ch_trimmed)
 	summary_fastqc(fastqc.out.fastqc_zip.collect())
 	shovill(ch_samplesheet_illumina)
 	summary_shovill(shovill.out.assembly_fasta.collect())
 	quast(shovill.out.assembly_out)
 	summary_quast(quast.out.quast_results.collect())
-	if (params.download_kraken_db) {
-		download_kraken_db()
-		kraken(fastp.out.trimmed_fastq.combine(download_kraken_db.out.kraken_db_folder))
-	} else {
-		kraken(fastp.out.trimmed_fastq.combine(Channel.fromPath( "${params.outdir}/../databases/k2_pluspf_20240605")))
+	if (!params.skip_kraken) {
+		if (params.download_kraken_db) {
+			download_kraken_db()
+			kraken(ch_trimmed.combine(download_kraken_db.out.kraken_db_folder))
+		} else {
+			kraken(ch_trimmed.combine(Channel.fromPath("${params.kraken_db}")))
+		}
+		bracken(kraken.out.kraken_results)
+		summary_bracken(bracken.out.bracken_results.collect())
 	}
-	bracken(kraken.out.kraken_results)
-	summary_bracken(bracken.out.bracken_results.collect())
-	if (params.download_checkm_db) {
-		download_checkm_db()
-		checkm(shovill.out.assembly_out.combine(download_checkm_db.out.checkm_db_folder))
-	} else {
-		checkm(shovill.out.assembly_out.combine(Channel.fromPath( "${params.outdir}/../databases/checkm_data_2015_01_16")))
+	if (!params.skip_checkm) {
+		if (params.download_checkm_db) {
+			download_checkm_db()
+			checkm(shovill.out.assembly_out.combine(download_checkm_db.out.checkm_db_folder))
+		} else {
+			checkm(shovill.out.assembly_out.combine(Channel.fromPath("${params.checkm_db}")))
+		}
+		summary_checkm(checkm.out.checkm_results.collect())
 	}
-	summary_checkm(checkm.out.checkm_results.collect())
 	kaptive3(shovill.out.assembly_out)
 	summary_kaptive(kaptive3.out.kaptive_tsv.collect())
-	snippy(fastp.out.trimmed_fastq.join(kaptive3.out.kaptive_results))
+	snippy(ch_trimmed.join(kaptive3.out.kaptive_results))
 	snippy_tab_ch=snippy.out.snippy_impact_tab.collect()
 	kaptive_summary_ch=summary_kaptive.out.kaptive_summary
 	if (!params.skip_mlst) {
@@ -824,17 +834,21 @@ workflow {
 		petg_report_ch = empty_petg_report_input.out.empty_petg
 	}
 	report(snippy_tab_ch,kaptive_summary_ch,petg_report_ch,mlst_report_ch)
-	if (params.download_bakta_db) {
-		download_bakta_db()
-		bakta(shovill.out.assembly_out.combine(download_bakta_db.out.bakta_db_folder))
-	} else {
-		bakta(shovill.out.assembly_out.combine(Channel.fromPath( "${params.outdir}/../databases/bakta_db/db")))
-	}	
-	if (params.download_amrfinder_db) {
-		download_amrfinder_db()
-		amrfinder(shovill.out.assembly_out.combine(download_amrfinder_db.out.amrfinder_db_folder))
-	} else {	
-		amrfinder(shovill.out.assembly_out.combine(Channel.fromPath("${params.outdir}/../databases/amrfinderplus/amrfinderplus_db/latest")))
+	if (!params.skip_bakta) {
+		if (params.download_bakta_db) {
+			download_bakta_db()
+			bakta(shovill.out.assembly_out.combine(download_bakta_db.out.bakta_db_folder))
+		} else {
+			bakta(shovill.out.assembly_out.combine(Channel.fromPath("${params.bakta_db}")))
+		}
 	}
-	summary_amrfinder(amrfinder.out.amrfinder_results.collect())
+	if (!params.skip_amrfinder) {
+		if (params.download_amrfinder_db) {
+			download_amrfinder_db()
+			amrfinder(shovill.out.assembly_out.combine(download_amrfinder_db.out.amrfinder_db_folder))
+		} else {
+			amrfinder(shovill.out.assembly_out.combine(Channel.fromPath("${params.amrfinder_db}")))
+		}
+		summary_amrfinder(amrfinder.out.amrfinder_results.collect())
+	}
 }

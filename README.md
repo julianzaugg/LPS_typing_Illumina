@@ -1,304 +1,442 @@
 # LPS_typing_Illumina
-Bioinformatics pipeline for Pasteurella multocida LPS typing using Illumina sequencing data
+Bioinformatics pipeline for *Pasteurella multocida* LPS typing using Illumina sequencing data
 
-  - [Overall pipeline](#Overall-pipeline)
-  - [User guide](#Step-by-step-user-guide)
-  - [Example data](#Example-data)
-  - [Optional parameters](#Optional-parameters)
-  - [Output files](#structure-of-the-output-folders)
-  - [Acknowledgements/citations/credits](#acknowledgements--citations--credits)
-    
-## Overall pipeline 
+- [Quick start](#quick-start)
+- [Overall pipeline](#overall-pipeline)
+- [Step-by-step user guide](#step-by-step-user-guide)
+- [Database setup](#database-setup)
+- [Optional parameters](#optional-parameters)
+- [Output files](#structure-of-the-output-folders)
+- [Advanced use](#advanced-use)
+- [Acknowledgements / citations / credits](#acknowledgements--citations--credits)
+
+---
+
+## Quick start
+
+**Requirements:** [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 23.04, and either [Singularity](https://docs.sylabs.io/guides/latest/user-guide/) or [Apptainer](https://apptainer.org/docs/user/latest/).
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/vmurigneu/LPS_typing_Illumina.git
+cd LPS_typing_Illumina
+
+# 2. Obtain large databases (see Database setup below)
+#    The LPS and Kaptive databases are already included in databases/
+
+# 3. Create your samplesheet (see Samplesheet section below)
+
+# 4. Run (local execution with Apptainer)
+nextflow run main.nf -profile apptainer \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results
+
+# On a SLURM cluster, add the slurm profile and your account name:
+nextflow run main.nf -profile apptainer,slurm \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results \
+  --slurm_account YOUR_ACCOUNT
+```
+
+---
+
+## Overall pipeline
 
 ### 1. Read trimming
 
-The raw Illumina reads are trimmed using [fastp](https://github.com/OpenGene/fastp) v0.24.0.     
+Raw Illumina reads are trimmed using [fastp](https://github.com/OpenGene/fastp) v0.24.0.
 
-### 2. Illumina reads quality metrics 
+### 2. Illumina reads quality metrics
 
-[FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) v0.12.1 is used to compute Illumina read metrics for each barcode on the trimmed reads. [MultiQC](https://github.com/MultiQC/MultiQC) v.1.28 is used to produce a report containing the FastQC results for all the samples.     
+[FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) v0.12.1 computes quality metrics for each sample on the trimmed reads. [MultiQC](https://github.com/MultiQC/MultiQC) v1.28 produces a combined report across all samples.
 
 ### 3. Genome assembly using Shovill
 
-The Illumina paired-end reads are assembled using the software [Shovill](https://github.com/tseemann/shovill) v1.1.0. Shovill is a pipeline which uses the SPAdes genome assembler at its core.       
+Paired-end reads are assembled using [Shovill](https://github.com/tseemann/shovill) v1.4.2, which uses SPAdes at its core.
 
-### 4. 	Assembly quality assessment with QUAST
+### 4. Assembly quality assessment with QUAST
 
-The software [QUAST](https://quast.sourceforge.net/quast.html) v5.2.0 is used to compute genome assembly metrics on the polished assemblies.  
+[QUAST](https://quast.sourceforge.net/quast.html) v5.2.0 computes assembly metrics on the polished assemblies.
 
 ### 5. Assembly quality assessment with CheckM
 
-The software [CheckM](https://github.com/Ecogenomics/CheckM) v1.2.2 (command [lineage_wf](https://github.com/Ecogenomics/CheckM/wiki/Workflows#lineage-specific-workflow)) is used to compute genome assembly completeness and contamination, based on the presence or absence of marker genes. 
+[CheckM](https://github.com/Ecogenomics/CheckM) v1.2.2 (command `lineage_wf`) estimates genome completeness and contamination from marker genes.
 
 ### 6. Kraken2/Bracken taxonomy classification
 
-Illumina reads are used as input to the taxonomy classifier [Kraken2](https://github.com/DerrickWood/kraken2) v2.1.3 followed by [Bracken](https://github.com/jenniferlu717/Bracken) v3.0 to estimate abundance of species within a sample. The default Kraken2 database is the PlusPF which contains the Standard database (RefSeq archaea, bacteria, viral, plasmid, human, UniVec_Core) plus RefSeq protozoa and fungi, see [details](https://benlangmead.github.io/aws-indexes/k2). The database was downloaded from https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20240605.tar.gz.   
+Trimmed reads are classified with [Kraken2](https://github.com/DerrickWood/kraken2) v2.1.3, and abundance is re-estimated at species level with [Bracken](https://github.com/jenniferlu717/Bracken) v3.0. The default database is the PlusPF index (Standard + RefSeq protozoa and fungi), see the [database index page](https://benlangmead.github.io/aws-indexes/k2) for details.
 
 ### 7. LPS typing using Kaptive
 
-The LPS type of the sample is obtained using the software [Kaptive](https://kaptive.readthedocs.io/en/latest/) v3. The genomes assemblies are used as input to this tool. The 9 LPS database is used but can be modified (config parameter "kaptive_db_9lps").  
+The LPS type is determined from the assembled genome using [Kaptive](https://kaptive.readthedocs.io/en/latest/) v3 with the 9-LPS database (included in `databases/kaptive3_LPS_db_v1/`).
 
-### 8. 	Variant calling using Snippy
+### 8. Variant calling using Snippy
 
-- The reads are mapped to the reference LPS type sequence identified by Kaptive using the sequence alignment program BWA-mem as part of the [snippy](https://github.com/tseemann/snippy) v4.6.0 pipeline.     
-- Then Snippy calls variants in the reads as compared to the reference LPS type sequence. It will find both substitutions (snps) and insertions/deletions (indels). 
-- Then Snippy uses [SnpEff](https://pcingola.github.io/SnpEff/) to annotate and predict the effects of the variants on genes and proteins (such as amino acid changes).  
-- Finally, a bash command is used to extract the variants predicted to have a high impact on the protein (frameshift and stop_gained variants).    
+- Trimmed reads are mapped to the LPS reference sequence identified by Kaptive using BWA-mem as part of [Snippy](https://github.com/tseemann/snippy) v4.6.0.
+- Snippy calls substitutions and indels relative to the reference LPS locus.
+- [SnpEff](https://pcingola.github.io/SnpEff/) annotates variant effects on genes and proteins.
+- High-impact variants (frameshift, stop_gained) are extracted to a separate file.
 
-### 9. 	MLST typing
+### 9. MLST typing
 
-The software [mlst](https://github.com/tseemann/mlst) is used to scan the genome assemblies against the  PubMLST typing scheme "pmultocida_2" by default (RIRDC). The typing scheme can be modified by specifying the parameter --mlst_scheme (e.g. --mlst_scheme "pmultocida"). 
+[mlst](https://github.com/tseemann/mlst) scans assemblies against the PubMLST scheme `pmultocida_2` (RIRDC) by default. The scheme can be changed with `--mlst_scheme`.
 
 ### 10. petG detection
 
-The pipeline uses [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) v2.17.0 to search the genome assembly for petG using the reference sequence petG_X73_NZ_CM001580.fasta from the LPS reference directory. petG is reported as present when a hit has a genomic span greater than 1570 bp and percent identity greater than or equal to 95%.
+[BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) v2.17.0 searches the assembly for *petG* using the reference sequence `petG_X73_NZ_CM001580.fasta` (included in `databases/LPS/`). petG is reported as present when a hit spans > 1570 bp at ≥ 95% identity.
 
-### 11.  LPS subtype report
+### 11. LPS subtype report
 
-The pipeline generates a subtype report file (10_Illumina_subtype_report.tsv) summarising the variants found in the [subtype database](https://github.com/vmurigneu/LPS_typing_Illumina/tree/main/databases/LPS/LPS_subtype_database_v2.txt). To be reported, the variant identified by snippy must be present in the subtype database with the following conditions:
-- the variant must be identified at the same position in the same reference sequence and
-- both the reference allele and the alternate allele must be matching their corresponding allele from the variant in the database.  
+The pipeline generates a subtype report (`10_Illumina_subtype_report.tsv`) that matches Snippy variants against the [LPS subtype database](databases/LPS/LPS_subtype_database_v2.txt). A variant is reported when it matches the database at the same position, reference allele, and alternate allele in the same reference sequence.
 
-When phenotype columns are present in the subtype database, the report also assigns the corresponding LPS phenotype and, if available, its description from phenotype_lookup.tsv. Older subtype database files without phenotype columns remain supported and produce blank phenotype fields.
+When phenotype columns are present in the subtype database, the report assigns the corresponding LPS phenotype and its description from `phenotype_lookup.tsv`. The report also includes MLST sequence type and petG presence when those steps are run.
 
-The final subtype report also includes the MLST sequence type and petG presence result for each sample when those steps are run.
+### 12. Genome annotation using Bakta
 
-### 12. 	Genome annotation using Bakta
+[Bakta](https://github.com/oschwengers/bakta) v1.12.0 annotates the genome assemblies. The default database is v6.0 (2025-02-24), available from [Zenodo record 10.5281/zenodo.14916843](https://zenodo.org/records/14916843).
 
-The software [Bakta](https://github.com/oschwengers/bakta) is used to annotate the genome assemblies. The default database is v6.0 from 2025-02-24, https://zenodo.org/records/14916843.    
+### 13. Antimicrobial resistance genes
 
-### 13. 	Antimicrobial Resistance genes
+[AMRFinderPlus](https://github.com/ncbi/amr) v4.0.23 identifies AMR genes in the assemblies. The tested database version is 2025-03-25.1.
 
-The software [AMRFinderPlus](https://github.com/ncbi/amr) is used to identify AMR genes in the genome assemblies. The default database is the version 2025-03-25.1 that was downloaded using the command amrfinder_update.  
+---
 
-## Step by step user guide
+## Step-by-step user guide
 
-Some files required to use the pipeline are provided to the user (see sections 1a, 1b and 2 below). Additional files must be created/modified by the user (see sections 1c, 3 and 4 below). 
+### 1. Clone the repository
 
-**1) Clone the Github pipeline repository**
-
-Navigate to a folder to your scratch space where you would like to run the pipeline (e.g. $raw_dir below) and clone the pipeline repository to import the required files: 
-```
-raw_dir=/scratch/project_mnt/SXXX/PIPELINE
-cd $raw_dir
+```bash
 git clone https://github.com/vmurigneu/LPS_typing_Illumina.git
+cd LPS_typing_Illumina
 ```
 
-It will create a repository called "LPS_typing_Illumina". The following three files can be found in the pipeline repository:
-- **a) Nextflow configuration file (nextflow.config)**  
+The repository includes three key files:
 
-When a Nexflow pipeline script is launched, Nextflow looks for a file named **nextflow.config** in the current directory. The configuration file defines default parameters values for the pipeline and cluster settings such as the executor (e.g. "slurm", "local") and queues to be used (https://www.nextflow.io/docs/latest/config.html).  
+**a) `nextflow.config`** — default parameters and container profiles. Nextflow reads this automatically from the working directory. Select a container engine with `-profile singularity` or `-profile apptainer`. Add `-profile slurm` on SLURM clusters. Container images are pulled automatically and cached in `./singularity/` by default.
 
-The pipeline uses separate containers for all processes. Select a container engine with `-profile singularity` or `-profile apptainer`. Nextflow will automatically pull the images required to run the pipeline and cache those images in the singularity directory in the pipeline work directory by default or in the cacheDir specified in the selected profile in nextflow.config ([Singularity documentation](https://www.nextflow.io/docs/latest/singularity.html), [Apptainer documentation](https://www.nextflow.io/docs/latest/container.html#apptainer)). Ensure that you have sufficient space in your assigned container cache directory as images can be large.
+**b) `main.nf`** — the pipeline code. Not user-modifiable.
 
-An example configuration file can be found [here](https://github.com/vmurigneu/LPS_typing_Illumina/blob/main/nextflow.config). 
+**c) `nextflow.sh`** — an optional SLURM submission script template. Edit it to set your account, partition, samplesheet path, and output directory, then submit with `sbatch nextflow.sh`.
 
-- **b) Nextflow main script (main.nf)**
+### 2. Obtain databases
 
-The main.nf script contains the pipeline code and is generally not user-modifiable. 
+See the [Database setup](#database-setup) section below.
 
-- **c) Nextflow execution bash script (nextflow.sh)**
-This is the bash script used to launch the workflow on the HPC. The template slurm script provided can be used to launch the pipeline on UQ HPC Bunya and is available [here](https://github.com/vmurigneu/LPS_typing_Illumina/blob/main/nextflow.sh). This file should be modified by the user to provide the path to the samplesheet file, Illumina data files etc (see section "Step by step user guide" below). 
+### 3. Prepare a samplesheet
 
-**2) Database files for Kraken, Kaptive, CheckM, Bakta and AMRFinderPlus**
+The samplesheet is a comma-separated file listing each sample and its paired FASTQ files. Paths are resolved relative to the directory where you run `nextflow run` (the launch directory).
 
-There are two options to obtain the databases files: 
-- **a) Databases stored locally for Lida's team**  
-Copy the databases folder from the RDM to the cloned pipeline repository on the scratch space (named "dir" below):
-```
-dir=/scratch/project_mnt/SXXX/PIPELINE/LPS_typing_Illumina
-cp -r /QRISdata/Q2313/Valentine/PIPELINES/databases ${dir}
+```bash
+mkdir samplesheet
+# Create/edit samplesheet/samples.csv:
 ```
 
-- **b) Databases download for other users**     
-The databases for Kraken, CheckM, Bakta and AMRFinderPlus can be downloaded automatically using the pipeline parameters --download_kraken_db, --download_checkm_db, --download_bakta_db, and --download_amrfinder_db respectively. The database folders will be downloaded in a folder called databases within your pipeline repository. Once the database folders have been downloaded once, you can remove the corresponding flags and the pipeline will reuse them automatically for subsequent runs.  
-The LPS type and subtype database are already included in the github [databases](https://github.com/vmurigneu/LPS_typing_Illumina/tree/main/databases) repository.     
-
-**3) Prepare the samplesheet file (csv)**
-
-- The raw Illumina fastq files must be copied in a directory (parameter "--fqdir").
-```
-fastq=/scratch/project_mnt/SXXX/PIPELINE/LPS_typing_pipeline_Illumina/fastq
-mkdir $fastq
-cp /path/to/fastq/files/ $fastq
-```
-  
-- The user must specify the path to the raw Illumina files in the samplesheet file. The samplesheet file is a comma-separated values files that defines the names of the samples with their corresponding input fastq files. The header line should match the header line in the examples below. The samplesheet can be saved in a folder named samplesheet e.g. 
-```
-mkdir /scratch/project_mnt/SXXX/PIPELINE/LPS_typing_Illumina/samplesheet
-vim /scratch/project_mnt/SXXX/PIPELINE/LPS_typing_Illumina/samplesheet/samples.csv
-```
-
-The samplesheet contains one line for each sample with the following information: the sample identifier (column "sample_id") and the path to the corresponding Illumina paired-end reads file (columns "short_fastq_1" and "short_fastq_2"). File paths are given in relation to the workflow base directory, they are not absolute paths. 
 ```
 sample_id,short_fastq_1,short_fastq_2
-PM3034,fastq/1_22VH7WLT3_ATGTCGTATT-TTCTTGCTGG_L002_R1.fastq.gz,fastq/1_22VH7WLT3_ATGTCGTATT-TTCTTGCTGG_L002_R2.fastq.gz
-PM3065,fastq/3_22VH7WLT3_GCAATATTCA-GGCGCCAATT_L002_R1.fastq.gz,fastq/3_22VH7WLT3_GCAATATTCA-GGCGCCAATT_L002_R2.fastq.gz
+PM3034,fastq/PM3034_R1.fastq.gz,fastq/PM3034_R2.fastq.gz
+PM3065,fastq/PM3065_R1.fastq.gz,fastq/PM3065_R2.fastq.gz
 ```
 
-**4) Run the pipeline**
+### 4. Run the pipeline
 
-The pipeline will be launched on the HPC Bunya using the bash script nextflow.sh. The command to start the pipeline with Singularity is:
-`nextflow main.nf -profile singularity --samplesheet /path/to/samples.csv --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/ --slurm_account 'account' `
+```bash
+# Local execution with Apptainer:
+nextflow run main.nf -profile apptainer \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results
 
-On systems using Apptainer, use `-profile apptainer` instead of `-profile singularity`.
+# SLURM cluster with Apptainer:
+nextflow run main.nf -profile apptainer,slurm \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results \
+  --slurm_account YOUR_ACCOUNT
 
+# Use -resume to restart from the last successful step:
+nextflow run main.nf -profile apptainer,slurm \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results \
+  --slurm_account YOUR_ACCOUNT \
+  -resume
 ```
---samplesheet: path to the samplesheet file
---outdir: path to the output directory to be created
---fqdir: path to the directory containing the Illumina fastq files
---slurm_account: name of the Bunya account (default='a_uqds') 
+
+---
+
+## Database setup
+
+The LPS reference data and Kaptive database are **included in the repository** under `databases/` and require no additional setup. Large third-party databases must be obtained separately; you can either download them automatically using pipeline flags, or provide pre-downloaded copies.
+
+| Database | Required for | Default path | Tested version | Source | Approx. size | How to obtain |
+|----------|-------------|--------------|---------------|--------|-------------|---------------|
+| LPS references | Steps 7, 8, 10, 11 | `databases/LPS/` | Included in repo | This repository | < 1 MB | Included — no action needed |
+| Kaptive3 LPS DB | Step 7 | `databases/kaptive3_LPS_db_v1/9lps.gbk` | Included in repo | This repository | < 200 KB | Included — no action needed |
+| Kraken2 + Bracken | Step 6 | `databases/k2_pluspf_20240605` | k2_pluspf_20240605 | [AWS index page](https://benlangmead.github.io/aws-indexes/k2) | ~ 70 GB | Add `--download_kraken_db`, or download manually (see below) |
+| CheckM | Step 5 | `databases/checkm_data_2015_01_16` | 2015_01_16 | [CheckM installation docs](https://github.com/Ecogenomics/CheckM/wiki/Installation) | ~ 1.4 GB | Add `--download_checkm_db`, or download manually (see below) |
+| Bakta | Step 12 | `databases/bakta_db/db` | v6.0 (2025-02-24) | [Zenodo 10.5281/zenodo.14916843](https://zenodo.org/records/14916843) | ~ 65 GB | Add `--download_bakta_db`, or download manually (see below) |
+| AMRFinderPlus | Step 13 | `databases/amrfinderplus/amrfinderplus_db/latest` | 2025-03-25.1 | [NCBI AMRFinderPlus wiki](https://github.com/ncbi/amr/wiki/AMRFinderPlus-database) | ~ 300 MB | Add `--download_amrfinder_db`, or download manually (see below) |
+
+> **Reproducibility note:** The `--download_*` flags retrieve the latest available database version, which may differ from the tested versions listed above and could affect results. For reproducible analyses, use pinned database versions and specify their paths explicitly with `--kraken_db`, `--checkm_db`, `--bakta_db`, and `--amrfinder_db`.
+
+### Downloading databases via pipeline flags
+
+Add the relevant flag(s) on the first run. The database will be downloaded into `databases/` and reused automatically on subsequent runs (omit the flag after the first download).
+
+```bash
+# Download Kraken2/Bracken database (~70 GB, slow):
+nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
+  --outdir results --download_kraken_db
+
+# Download CheckM database (~1.4 GB):
+nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
+  --outdir results --download_checkm_db
+
+# Download Bakta database (~65 GB, slow):
+nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
+  --outdir results --download_bakta_db
+
+# Download AMRFinderPlus database (~300 MB):
+nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
+  --outdir results --download_amrfinder_db
 ```
 
-Note: To run the assembly and assembly metrics steps only (skip LPS typing and variant calling):  
-`nextflow main.nf -profile singularity --samplesheet /path/to/samples.csv --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/ --slurm_account 'account' --skip_kaptive3 --skip_snippy`
+### Manual database download
 
-Once the nextflow.sh file is ready, the user can submit the pipeline on Bunya using the command:
+If you prefer to download databases yourself (e.g. for speed or reproducibility), download them to any location and point the pipeline to them:
+
+```bash
+# Kraken2 (tested version k2_pluspf_20240605):
+wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20240605.tar.gz
+tar -xvzf k2_pluspf_20240605.tar.gz -C /path/to/databases/k2_pluspf_20240605/
+# Then run with: --kraken_db /path/to/databases/k2_pluspf_20240605
+
+# CheckM (tested version checkm_data_2015_01_16):
+wget https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz
+mkdir -p /path/to/databases/checkm_data_2015_01_16
+tar -xvzf checkm_data_2015_01_16.tar.gz -C /path/to/databases/checkm_data_2015_01_16/
+# Then run with: --checkm_db /path/to/databases/checkm_data_2015_01_16
+
+# Bakta (tested version v6.0 from Zenodo):
+wget https://zenodo.org/records/14916843/files/db.tar.gz
+tar -xvzf db.tar.gz -C /path/to/databases/bakta_db/
+# Then run with: --bakta_db /path/to/databases/bakta_db/db
+
+# AMRFinderPlus (tested version 2025-03-25.1):
+# Use amrfinder_update within the container, or specify an existing database directory
+# Then run with: --amrfinder_db /path/to/databases/amrfinderplus/2025-03-25.1
 ```
-sbatch nextflow.sh
-```
+
+---
 
 ## Optional parameters
 
-Some parameters can be added to the command line in order to include or skip some steps and modify some parameters:
+### 1. Read trimming
 
-1. Read trimming:
-* `--skip_fastp`: skip the read trimming step (default=false). Not recommended. 
+* `--skip_fastp`: skip the read trimming step (default=false). Not recommended.
 
-2. FastQC reads quality metrics:
+### 2. FastQC reads quality metrics
+
 * `--skip_fastqc`: skip the FastQC step (default=false)
-* `--skip_summary_fastqc`: skip the summary FastQC step using MultiQC (default=false)
+* `--skip_summary_fastqc`: skip the MultiQC summary step (default=false)
 
-3. Genome assembly:
-* `--skip_assembly`: skip the assembly step (default=false). Note: it is not recommended to skip assembly as many steps in the downstream processing depends on the assembly results.   
-* `--shovill_threads`: number of threads for the assembly (default=4)
-* `--shovill_args`: Shovill optional parameters (default="")
+### 3. Genome assembly
+
+* `--shovill_threads`: number of threads for Shovill (default=4)
+* `--shovill_args`: additional Shovill parameters (default="", example: `"--minlen 200 --mincov 10"`)
 * `--genome_size`: estimated genome size (default="2.3M")
 
-4. Assembly quality assessment with QUAST:
+### 4. Assembly quality assessment with QUAST
+
 * `--skip_quast`: skip the QUAST step (default=false)
 * `--quast_threads`: number of threads for QUAST (default=2)
 
-5. Assembly quality assessment with CheckM:
+### 5. Assembly quality assessment with CheckM
+
 * `--skip_checkm`: skip the CheckM step (default=false)
-* `--checkm_db`: path to the CheckM database folder (default="../../../databases/checkm_data_2015_01_16")
-* `--download_checkm_db`: download the checkm database from https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz (default=false)
+* `--checkm_db`: path to the CheckM database folder (default=`databases/checkm_data_2015_01_16`)
+* `--download_checkm_db`: download the CheckM database automatically (default=false)
 
-6. Kraken2/Bracken taxonomy classification:
+### 6. Kraken2/Bracken taxonomy classification
+
 * `--skip_kraken`: skip the Kraken2/Bracken classification step (default=false)
-* `--kraken_db`: path to the Kraken2 database folder (default="../../../databases/k2_pluspf_20240605")
-* `--download_kraken_db`: download the kraken database from https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20240605.tar.gz (default=false)
-  
-7. LPS typing using Kaptive:
-* `--skip_kaptive3`: skip the Kaptive typing step (default=false). note: it will automatically skip the variant calling step.
-* `--kaptive_db_9lps`: path to the Kaptive database file (default=""../../../databases/kaptive3_LPS_db_v1/9lps.gbk")
+* `--kraken_db`: path to the Kraken2 database folder (default=`databases/k2_pluspf_20240605`)
+* `--download_kraken_db`: download the Kraken2 database automatically (default=false)
 
-8. Variant calling using Snippy:
-* `--skip_snippy`: skip the variant calling Snippy pipeline (default=false)
-* `--snippy_threads`: number of threads for the Snippy pipeline (default=6)
-* `--snippy_args`: Snippy optional parameters (default="")
-* `--reference_LPS_directory`: path to the directory containing the LPS reference files, reference_LPS.txt, subtype database, and petG_X73_NZ_CM001580.fasta (default="../../../databases/LPS")
+### 7. LPS typing using Kaptive
 
-9. MLST typing:
+* `--skip_kaptive3`: skip the Kaptive typing step (default=false). Note: skipping this also skips variant calling (Snippy) and petG detection.
+* `--kaptive_db_9lps`: path to the Kaptive database file (default=`databases/kaptive3_LPS_db_v1/9lps.gbk`)
+
+### 8. Variant calling using Snippy
+
+* `--skip_snippy`: skip the Snippy variant calling step (default=false)
+* `--snippy_threads`: number of threads for Snippy (default=6)
+* `--snippy_args`: additional Snippy parameters (default="")
+* `--reference_LPS_directory`: path to the LPS reference directory containing `reference_LPS.txt`, `LPS_subtype_database_v2.txt`, `petG_X73_NZ_CM001580.fasta`, and FASTA/GB files for all LPS types (default=`databases/LPS`)
+
+### 9. MLST typing
+
 * `--skip_mlst`: skip the MLST typing step (default=false)
 * `--mlst_scheme`: MLST typing scheme (default="pmultocida_2")
 
-10. petG detection:
+### 10. petG detection
+
 * `--skip_petg`: skip petG detection with BLAST (default=false)
-* `--petg_threads`: number of threads for the petG BLAST step (default=2)
-* `--petg_min_length`: minimum genomic hit span for petG presence; hits must be greater than this value (default=1570)
+* `--petg_threads`: number of threads for the BLAST step (default=2)
+* `--petg_min_length`: minimum genomic hit span in bp for petG presence; hits must exceed this value (default=1570)
 * `--petg_min_identity`: minimum percent identity for petG presence (default=95)
-* The petG BLAST step uses the container docker://quay.io/biocontainers/blast:2.17.0--h66d330f_0.
 
-11. Report:
-* The subtype report uses LPS_subtype_database_v2.txt from `--reference_LPS_directory` and, when present, phenotype_lookup.tsv from the same directory.
+### 11. Report
 
-12. Genome annotation using Bakta:
-* `--skip_bakta`: skip the genome annotation step (default=false)
-* `--bakta_threads`: number of threads for the Bakta step (default=8)  
-* `--bakta_db`: path to the Bakta database files (default="../../../databases/bakta_db/db")
-* `--download_bakta_db`: download the latest Bakta database using the command *bakta_db download* (default=false)
-* `--bakta_args`: Bakta optional parameters (default="--proteins ../../../databases/LPS/NC_002663_LPS.gb")  
+The subtype report uses `LPS_subtype_database_v2.txt` and, when present, `phenotype_lookup.tsv` from `--reference_LPS_directory`. No additional parameters needed.
 
-13. AMR genes identification using AMRFinderPlus:
-* `--skip_amrfinder`: skip the AMR genes identification step (default=false)
-* `--amrfinder_db`: path to the AMRFinderPlus database files (default="../../../databases/amrfinderplus/amrfinderplus_db/latest")
-* `--download_amrfinder_db`: download the latest AMRFinderPlus database using the command *amrfinder_update* (default=false)
-* `--amrfinder_args`: AMRFinderPlus optional parameters (default="")
-  
+### 12. Genome annotation using Bakta
+
+* `--skip_bakta`: skip genome annotation (default=false)
+* `--bakta_threads`: number of threads for Bakta (default=8)
+* `--bakta_db`: path to the Bakta database folder (default=`databases/bakta_db/db`)
+* `--download_bakta_db`: download the latest Bakta database automatically (default=false)
+* `--bakta_args`: additional Bakta parameters (default includes `--proteins databases/LPS/NC_002663_LPS.gb` for *Pasteurella multocida*)
+
+### 13. AMR gene identification using AMRFinderPlus
+
+* `--skip_amrfinder`: skip AMR gene identification (default=false)
+* `--amrfinder_db`: path to the AMRFinderPlus database folder (default=`databases/amrfinderplus/amrfinderplus_db/latest`)
+* `--download_amrfinder_db`: download the latest AMRFinderPlus database automatically (default=false)
+* `--amrfinder_args`: additional AMRFinderPlus parameters (default="")
+
+---
+
 ## Structure of the output folders
 
-The pipeline will create several folders corresponding to the different steps of the pipeline. 
-The main output folder (`--outdir`) will contain a folder per sample (the folder is named as in the column sample_id in the samplesheet file).
+The pipeline creates a folder per sample (named by `sample_id`) inside `--outdir`, plus a combined `10_report` folder.
 
-Each sample folder will contain the following folders:
-* **1_trimming:** Paired-end trimmed fastq files (sample_id_R1_trimmed.fastq.gz and sample_id_R2_trimmed.fastq.gz).
-* **2_fastqc:** FastQC quality control results for the paired-end reads:
-    * FastQC report in html format (sample_id_R1_trimmed_fastqc.html and sample_id_R2_trimmed_fastqc.html)
-    * FastQC zipped results folder (sample_id_R1_trimmed_fastqc.zip and sample_id_R2_trimmed_fastqc.zip)
-* **3_assembly:** Shovill assembly output files, see [details](https://github.com/tseemann/shovill?tab=readme-ov-file#output-files).
-    * Final genome assembly in fasta format (sample_id_contigs.fa)
-    * SPADES assembly graph (sample_id_contigs.gfa)
-* **4_quast:** QUAST output report file (sample_id_report.tsv).
-* **5_checkm:** CheckM output file (sample_id_checkm_lineage_wf_results.tsv).  
-* **6_kraken:**  Kraken2/Bracken taxonomy classification results, see output files format details [here](https://github.com/DerrickWood/kraken2/wiki/Manual#output-formats) and [here](https://ccb.jhu.edu/software/bracken/index.shtml?t=manual#format)
-  * Kraken2 classification report (sample_id_kraken2_report.txt)  
-  * Kraken2 classification assignments for a read (sample_id_kraken2.tsv.gz)  
-  * Bracken species abundance results (sample_id_bracken_species.tsv)   
-  * Bracken results in Kraken style report format (sample_id_bracken_report.txt)  
-* **7_kaptive_v3:** Kaptive output files, see [details](https://kaptive.readthedocs.io/en/latest/Outputs.html)
-    * LPS type results (sample_id_kaptive_results.tsv)
-    * LPS sequence in fasta format (sample_id_kaptive_results.fna)
-* **8_snippy:** Mapping files and variant calling results from Snippy, see [details](https://github.com/tseemann/snippy?tab=readme-ov-file#output-files):
-    * BWA mapping file in bam format (sample_id_snps.bam_mapped.bam and .bai index). 
-    * Unfiltered variants from Freebayes in VCF format (sample_id_clair_snps.raw.vcf) 
-    * Filtered variants from Freebayes in VCF format (sample_id_snps.filt.vcf)
-    * Summary of variants in tabular format (sample_id_snps.tab)
-    * Summary of high impact variants (frameshift_variant and stop_gained) in tabular format (sample_id_snps.high_impact.tab)
-* **9_mlst:** MLST typing output file (sample_id_mlst_pmultocida_rirdc.csv) 
-* **13_petG:** petG BLAST output files:
-    * BLAST tabular output for all hits (sample_id_petG_blast.tsv)
-    * BLAST tabular output for accepted hits (sample_id_petG_blast.filtered.tsv)
-    * FASTA sequences for accepted hits (sample_id_petG_hits.fasta)
-    * petG presence summary (sample_id_petG_summary.tsv)
-* **10_report:** Summary of results for all samples
-    * MultiQC report in html format (2_Illumina_multiqc_report.html) and general statistics in tabular format (2_Illumina_multiqc_general_stats.txt)
-    * Shovill assembly statistics: assembly coverage, number of contigs, assembly size (3_Illumina_shovill_stats.tsv) 
-    * QUAST combined report file (4_Illumina_quast_report.tsv)  
-    * Checkm results (5_Illumina_checkm_lineage_wf_results.tsv)  
-    * Kraken/Bracken taxonomy results:  
-        - Abundance of P. multocida reads: 6_Illumina_bracken_pasteurella_multocida_species_abundance.tsv
-        - Information about the most abundant species identified: 6_Illumina_bracken_most_abundant_species.tsv    
-    * Kaptive results (7_Illumina_kaptive_results.tsv)  
-    * Snippy variants results:  
-        - all variants: 8_Illumina_snippy_snps.tsv 
-        - only variants predicted to have a high impact on the protein: 8_Illumina_snippy_snps.high_impact.tsv 
-    * MLST results (9_Illumina_mlst.csv)  
-    * Subtype results summarising the variants found in the subtype database (10_Illumina_subtype_report.tsv). The columns in this file represents:
-        - SAMPLE: sample identifier (sample_id in the samplesheet)  
-        - MLST: MLST sequence type
-        - TYPE: LPS type assigned by Kaptive when the match confidence is Typeable; untypeable Kaptive results are reported as `untypeable`
-        - SUBTYPE: LPS subtype assigned by the pipeline (using the subtype database)    
-        - VARTYPE: description of the variant   
-        - ISOLATE_DATABASE: reference isolate from the subtype database that contained that variant  
-        - CHROM: name of the reference sequence for the LPS locus type  
-        - POS: variant position in the reference sequence for the LPS locus type
-        - REF: reference allele sequence present in the LPS reference sequence  
-        - ALT: alternate allele sequence identified in the sample  
-        - GENE: gene containing the variant  
-        - PHENOTYPE: LPS phenotype assigned from the subtype database, when available
-        - PHENOTYPE_DESCRIPTION: description of the assigned LPS phenotype, when available in phenotype_lookup.tsv
-        - PETG_PRESENT: petG presence from BLAST (`yes` when present, blank otherwise)
-        - NOTE: subtype database note for the matched variant, when available
-    * AMRFinderPlus results (12_Illumina_amrfinder.tsv)
-* **11_bakta:** Bakta genome annotation output files. The output files are described [here](https://github.com/oschwengers/bakta?tab=readme-ov-file#output) and include:  
-    * Annotations & sequences in (multi) GenBank format (sample_id_bakta.gbff)  
-    * Inference metrics (score, evalue, coverage, identity) for annotated accessions as TSV (sample_id_bakta.inference.tsv)  
-    * Annotation summary in text format (sample_id_bakta.txt)    
-* **12_amrfinder:** AMRFinderPlus output file (sample_id_amrfinder.tsv). The output in tab-delimited format is described [here](https://github.com/ncbi/amr/wiki/Running-AMRFinderPlus#output-format). 
-## Running the workflow in assembly mode for other organisms
+Each sample folder contains:
 
-The default parameters are suited for Pasteurella multocida. The LPS typing and variant calling are specific to Pasteurella multocida. Here are the paraneters to use the workflow to assemble another species:  
-* `--genome_size`: estimated genome size (default="2.3M")
-* `--mlst_scheme`: MLST typing scheme (default="pmultocida_2")
-* `--skip_kaptive3`: skip the Kaptive typing step (default=false). note: it will automatically skip the variant calling step. 
+* **1_trimming:** Trimmed paired-end FASTQ files (`sample_id_R1_trimmed.fastq.gz`, `sample_id_R2_trimmed.fastq.gz`).
+* **2_fastqc:** FastQC results — HTML report and ZIP archive for each read set.
+* **3_assembly:** Shovill assembly output. See [Shovill output docs](https://github.com/tseemann/shovill?tab=readme-ov-file#output-files).
+  * Final assembly in FASTA format (`sample_id_contigs.fa`)
+  * SPAdes assembly graph (`sample_id_contigs.gfa`)
+* **4_quast:** QUAST report (`sample_id_report.tsv`).
+* **5_checkm:** CheckM lineage workflow results (`sample_id_checkm_lineage_wf_results.tsv`).
+* **6_kraken:** Kraken2/Bracken taxonomy classification results. See output format details [here (Kraken2)](https://github.com/DerrickWood/kraken2/wiki/Manual#output-formats) and [here (Bracken)](https://ccb.jhu.edu/software/bracken/index.shtml?t=manual#format).
+  * Kraken2 classification report (`sample_id_kraken2_report.txt`)
+  * Kraken2 per-read assignments (`sample_id_kraken2.tsv.gz`)
+  * Bracken species abundance (`sample_id_bracken_species.tsv`)
+  * Bracken Kraken-style report (`sample_id_bracken_report.txt`)
+* **7_kaptive_v3:** Kaptive output files. See [Kaptive output docs](https://kaptive.readthedocs.io/en/latest/Outputs.html).
+  * LPS type results (`sample_id_kaptive_results.tsv`)
+  * LPS sequence in FASTA format (`sample_id_kaptive_results.fna`)
+* **8_snippy:** Snippy mapping and variant calling results. See [Snippy output docs](https://github.com/tseemann/snippy?tab=readme-ov-file#output-files).
+  * BAM alignment file (`sample_id_snps.bam_mapped.bam` and `.bai` index)
+  * Unfiltered variants VCF (`sample_id_clair_snps.raw.vcf`)
+  * Filtered variants VCF (`sample_id_snps.filt.vcf`)
+  * Variant summary in tabular format (`sample_id_snps.tab`)
+  * High-impact variants (frameshift, stop_gained) (`sample_id_snps.high_impact.tab`)
+* **9_mlst:** MLST typing result (`sample_id_mlst_pmultocida_rirdc.csv`).
+* **13_petG:** petG BLAST output files.
+  * BLAST tabular output for all hits (`sample_id_petG_blast.tsv`)
+  * BLAST tabular output for accepted hits (`sample_id_petG_blast.filtered.tsv`)
+  * FASTA sequences for accepted hits (`sample_id_petG_hits.fasta`)
+  * petG presence summary (`sample_id_petG_summary.tsv`)
+* **11_bakta:** Bakta annotation output. See [Bakta output docs](https://github.com/oschwengers/bakta?tab=readme-ov-file#output).
+  * Annotations in GenBank format (`sample_id_bakta.gbff`)
+  * Inference metrics (`sample_id_bakta.inference.tsv`)
+  * Annotation summary (`sample_id_bakta.txt`)
+* **12_amrfinder:** AMRFinderPlus results (`sample_id_amrfinder.tsv`). See [output format](https://github.com/ncbi/amr/wiki/Running-AMRFinderPlus#output-format).
+
+The `10_report` folder contains combined results across all samples:
+
+* MultiQC report (`2_Illumina_multiqc_report.html`) and general statistics (`2_Illumina_multiqc_general_stats.txt`)
+* Shovill assembly statistics: coverage, contig count, assembly size (`3_Illumina_shovill_stats.tsv`)
+* Combined QUAST report (`4_Illumina_quast_report.tsv`)
+* Combined CheckM results (`5_Illumina_checkm_lineage_wf_results.tsv`)
+* Kraken/Bracken taxonomy results:
+  * *P. multocida* abundance (`6_Illumina_bracken_pasteurella_multocida_species_abundance.tsv`)
+  * Most abundant species (`6_Illumina_bracken_most_abundant_species.tsv`)
+* Kaptive results (`7_Illumina_kaptive_results.tsv`)
+* Snippy variant results:
+  * All variants (`8_Illumina_snippy_snps.tsv`)
+  * High-impact variants only (`8_Illumina_snippy_snps.high_impact.tsv`)
+* MLST results (`9_Illumina_mlst.csv`)
+* Subtype report (`10_Illumina_subtype_report.tsv`). Column descriptions:
+  * **SAMPLE**: sample identifier
+  * **MLST**: MLST sequence type
+  * **TYPE**: LPS type assigned by Kaptive (or `untypeable`)
+  * **SUBTYPE**: LPS subtype from the subtype database
+  * **VARTYPE**: description of the variant
+  * **ISOLATE_DATABASE**: reference isolate from the subtype database
+  * **CHROM**: reference sequence name for the LPS locus
+  * **POS**: variant position in the reference
+  * **REF**: reference allele
+  * **ALT**: alternate allele identified in the sample
+  * **GENE**: gene containing the variant
+  * **PHENOTYPE**: LPS phenotype from the subtype database, when available
+  * **PHENOTYPE_DESCRIPTION**: phenotype description from `phenotype_lookup.tsv`, when available
+  * **PETG_PRESENT**: petG presence (`yes` when present, blank otherwise)
+  * **NOTE**: subtype database note for the matched variant, when available
+* AMRFinderPlus combined results (`12_Illumina_amrfinder.tsv`)
+
+---
+
+## Advanced use
+
+### Running in assembly-only mode for other organisms
+
+The default parameters are optimised for *Pasteurella multocida*. LPS typing, variant calling, and petG detection are species-specific. To use the pipeline for genome assembly, QC, taxonomy, and MLST for another species, skip the *P. multocida*-specific steps:
+
+```bash
+nextflow run main.nf -profile apptainer \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results \
+  --genome_size 2.5M \
+  --mlst_scheme your_scheme \
+  --skip_kaptive3 \
+  --skip_bakta \
+  --skip_amrfinder
+```
+
+Note: `--skip_kaptive3` automatically skips Snippy variant calling and petG detection.
+
+### Using a custom cluster configuration
+
+For clusters with non-standard SLURM partitions, memory limits, or other requirements, create a custom config file and pass it with `-c`:
+
+```bash
+# my_cluster.config
+process {
+    executor = 'slurm'
+    clusterOptions = '--account=my_account --partition=high_mem'
+    time = '12h'
+    withLabel: high_memory { memory = 512.GB }
+}
+```
+
+```bash
+nextflow run main.nf -profile apptainer \
+  --samplesheet samplesheet/samples.csv \
+  --outdir results \
+  -c my_cluster.config
+```
+
+---
+
+## Acknowledgements / citations / credits
+
+Please cite the following tools when using this pipeline:
+
+- [fastp](https://github.com/OpenGene/fastp)
+- [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+- [MultiQC](https://github.com/MultiQC/MultiQC)
+- [Shovill](https://github.com/tseemann/shovill) / [SPAdes](https://github.com/ablab/spades)
+- [QUAST](https://quast.sourceforge.net/quast.html)
+- [CheckM](https://github.com/Ecogenomics/CheckM)
+- [Kraken2](https://github.com/DerrickWood/kraken2)
+- [Bracken](https://github.com/jenniferlu717/Bracken)
+- [Kaptive](https://kaptive.readthedocs.io/en/latest/)
+- [Snippy](https://github.com/tseemann/snippy) / [SnpEff](https://pcingola.github.io/SnpEff/)
+- [mlst](https://github.com/tseemann/mlst)
+- [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi)
+- [Bakta](https://github.com/oschwengers/bakta)
+- [AMRFinderPlus](https://github.com/ncbi/amr)
+
+Pipeline developed by Valentine Murigneux and Julian Zaugg.
