@@ -286,7 +286,9 @@ tar -xvzf db.tar.gz -C /path/to/databases/bakta_db/
 
 ### 11. Report
 
-The subtype report uses `LPS_subtype_database_v2.txt` and, when present, `phenotype_lookup.tsv` from `--reference_LPS_directory`. No additional parameters needed.
+The subtype report uses `LPS_subtype_database_v2.txt` and, when present, `phenotype_lookup.tsv` from `--reference_LPS_directory`. The pipeline also generates a self-contained HTML summary report from the combined `10_report` outputs when Kaptive and Snippy are enabled.
+
+* `--skip_html_report`: skip generation of the combined HTML report (default=false)
 
 ### 12. Genome annotation using Bakta
 
@@ -358,6 +360,7 @@ The `10_report` folder contains combined results across all samples:
   * All variants (`8_Illumina_snippy_snps.tsv`)
   * High-impact variants only (`8_Illumina_snippy_snps.high_impact.tsv`)
 * MLST results (`9_Illumina_mlst.csv`)
+* Self-contained HTML summary report (`LPS_typing_report.html`) with sample-level LPS calls, QC summaries, phenotype information, and variant/locus visualisations. This report is generated when `--skip_html_report false`, `--skip_kaptive3 false`, and `--skip_snippy false`.
 * Subtype report (`10_Illumina_subtype_report.tsv`). Column descriptions:
   * **SAMPLE**: sample identifier
   * **MLST**: MLST sequence type
