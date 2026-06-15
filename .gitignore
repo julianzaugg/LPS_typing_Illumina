@@ -2,3 +2,11 @@ phenotype_report_handoff.md
 data_dump*/
 work*/
 .DS_Store
+
+# Local Python environments and caches
+.venv/
+.venv_*/
+venv/
+env/
+__pycache__/
+*.py[cod]

@@ -662,6 +662,29 @@ process report {
 	"""
 }
 
+process html_report {
+	publishDir "$params.outdir/10_report",  mode: 'copy', pattern: '*.html'
+	input:
+		path(report_inputs)
+		val(pipeline_version)
+		val(skipped_steps)
+		val(param_note)
+	output:
+		path("LPS_typing_report.html"), emit: html_report
+	when:
+	!params.skip_html_report && !params.skip_snippy && !params.skip_kaptive3
+	script:
+	"""
+	generate_lps_report.py \\
+		--report-dir . \\
+		--lps-db-dir ${params.reference_LPS_directory} \\
+		--out LPS_typing_report.html \\
+		--pipeline-version "${pipeline_version}" \\
+		--skipped "${skipped_steps}" \\
+		--params "${param_note}"
+	"""
+}
+
 process mlst {
         cpus "${params.threads}"
         tag "${sample}"
@@ -851,4 +874,34 @@ workflow {
 		}
 		summary_amrfinder(amrfinder.out.amrfinder_results.collect())
 	}
+	// Build the single combined HTML report from the aggregated 10_report outputs.
+	// The LPS database directory is read directly via params.reference_LPS_directory
+	// (mounted), so only the aggregated TSV/HTML files need to be staged here.
+	html_inputs_ch = report.out.subtype_report.flatten()
+		.mix(summary_shovill.out.shovill_summary)
+		.mix(summary_quast.out.quast_summary)
+		.mix(summary_kaptive.out.kaptive_summary)
+		.mix(summary_fastqc.out.fastqc_summary)
+	if (!params.skip_checkm) {
+		html_inputs_ch = html_inputs_ch.mix(summary_checkm.out.checkm_summary)
+	}
+	if (!params.skip_kraken) {
+		html_inputs_ch = html_inputs_ch.mix(summary_bracken.out.bracken_summary.flatten())
+	}
+	if (!params.skip_mlst) {
+		html_inputs_ch = html_inputs_ch.mix(summary_mlst.out.mlst_summary)
+	}
+	if (!params.skip_amrfinder) {
+		html_inputs_ch = html_inputs_ch.mix(summary_amrfinder.out.amrfinder_summary)
+	}
+	skipped_list = []
+	if (params.skip_kraken) skipped_list << 'kraken/bracken'
+	if (params.skip_checkm) skipped_list << 'checkm'
+	if (params.skip_quast) skipped_list << 'quast'
+	if (params.skip_mlst) skipped_list << 'mlst'
+	if (params.skip_petg) skipped_list << 'petG'
+	if (params.skip_amrfinder) skipped_list << 'amrfinder'
+	if (params.skip_bakta) skipped_list << 'bakta'
+	param_note_str = "MLST scheme: ${params.mlst_scheme}; petG reported present when a hit spans > ${params.petg_min_length} bp at >= ${params.petg_min_identity}% identity"
+	html_report(html_inputs_ch.collect(), workflow.manifest.version, skipped_list.join(', '), param_note_str)
 }
