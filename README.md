@@ -360,7 +360,7 @@ The `10_report` folder contains combined results across all samples:
   * All variants (`8_Illumina_snippy_snps.tsv`)
   * High-impact variants only (`8_Illumina_snippy_snps.high_impact.tsv`)
 * MLST results (`9_Illumina_mlst.csv`)
-* Self-contained HTML summary report (`LPS_typing_report.html`) with sample-level LPS calls, QC summaries, phenotype information, and variant/locus visualisations. This report is generated when `--skip_html_report false`, `--skip_kaptive3 false`, and `--skip_snippy false`.
+* Self-contained HTML summary report (`LPS_typing_report.html`) with sample-level LPS calls, QC summaries, phenotype information, and variant/locus visualisations. This report is generated when `--skip_html_report false`, `--skip_kaptive3 false`, and `--skip_snippy false`. The per-LPS-type lollipop plots show the mutations observed across the run (lollipop height = number of genomes carrying each mutation); hovering a lollipop or gene shows its details, a gene-colour legend accompanies each plot, and the full mutation list is available in a collapsible table beneath it.
 * Subtype report (`10_Illumina_subtype_report.tsv`). Column descriptions:
   * **SAMPLE**: sample identifier
   * **MLST**: MLST sequence type

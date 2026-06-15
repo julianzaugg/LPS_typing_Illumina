@@ -17,6 +17,7 @@ import io
 import json
 import re
 import sys
+import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import date
 from pathlib import Path
@@ -93,6 +94,45 @@ def fig_to_data_uri(fig):
     plt.close(fig)
     encoded = base64.b64encode(buf.getvalue().encode("utf-8")).decode("ascii")
     return f"data:image/svg+xml;base64,{encoded}"
+
+
+_SVG_NS = "http://www.w3.org/2000/svg"
+ET.register_namespace("", _SVG_NS)
+ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+
+
+def _inject_titles(svg_str, titles):
+    """Add a <title> child to every <g id=...> whose id is in `titles` so the
+    browser shows a native tooltip on hover (requires the SVG to be inlined)."""
+    body = svg_str[svg_str.index("<svg"):]
+    root = ET.fromstring(body)
+    for g in root.iter(f"{{{_SVG_NS}}}g"):
+        gid = g.get("id")
+        if gid in titles:
+            t = ET.Element(f"{{{_SVG_NS}}}title")
+            t.text = titles[gid]
+            g.insert(0, t)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _namespace_ids(svg_str, prefix):
+    """Prefix all internal ids + their references so multiple inlined SVGs in
+    one HTML document don't collide (clip-paths, glyph defs, gids)."""
+    ids = sorted(set(re.findall(r'id="([^"]+)"', svg_str)), key=len, reverse=True)
+    for i in ids:
+        svg_str = svg_str.replace(f'id="{i}"', f'id="{prefix}{i}"')
+        svg_str = svg_str.replace(f'url(#{i})', f'url(#{prefix}{i})')
+        svg_str = svg_str.replace(f'href="#{i}"', f'href="#{prefix}{i}"')
+    return svg_str
+
+
+def fig_to_inline_svg(fig, titles, prefix):
+    """Render a figure to inline SVG markup (not an <img> data URI) with native
+    <title> tooltips attached and all ids namespaced."""
+    buf = io.StringIO()
+    fig.savefig(buf, format="svg", bbox_inches="tight")
+    plt.close(fig)
+    return _namespace_ids(_inject_titles(buf.getvalue(), titles), prefix)
 
 
 def short_vartype(vartype):
@@ -233,53 +273,76 @@ def load_phenotype_images(lps_db_dir):
 # Figures
 # --------------------------------------------------------------------------- #
 
-def make_lollipop(lps_type, chrom, genes, locus_len, variants, gene_colors):
-    """Build a lollipop figure for one LPS type.
+def make_lollipop(lps_type, chrom, genes, locus_len, variants, gcolors):
+    """Build a lollipop figure for one LPS type and return inline SVG markup.
 
-    ``variants`` is a list of dicts: {'pos','label','gene','count'}.
-    Height = number of genomes carrying the mutation.
+    ``variants`` is a list of dicts: {'pos','label','gene','count'}; height = number
+    of genomes carrying the mutation. Mutation labels are placed in leader-line
+    stacked tiers to avoid overlap; gene-track boxes are labelled only where the
+    text fits (the rest are covered by the gene-colour legend). Markers and gene
+    boxes carry <title> tooltips. Width scales with locus length and variant count.
     """
-    gcolors = color_for_genes(genes, gene_colors)
+    titles = {}
     max_count = max((v["count"] for v in variants), default=1)
-    xmax = max(locus_len, max(g["end"] for g in genes) if genes else locus_len)
-    xmax = max(xmax, 1)
+    xmax = max(locus_len, max(g["end"] for g in genes) if genes else locus_len, 1)
 
-    fig_w = 9.0
-    fig, ax = fig_axes = plt.subplots(figsize=(fig_w, 3.4))
+    fig_w = min(16.0, max(9.0, xmax / 900.0 + len(variants) * 0.18))
+    fig, ax = plt.subplots(figsize=(fig_w, 4.0))
+    fig_px = fig_w * fig.dpi
 
-    band = max_count * 0.18  # gene-track height, in count units
-    y_top = max_count * 1.55 + band
+    band = max_count * 0.16  # gene-track height, in count units
 
-    # Gene track (colored boxes below baseline y=0).
+    # Gene track (colored boxes below baseline y=0); label only if it fits.
     for g in genes:
-        width = g["end"] - g["start"]
-        ax.add_patch(Rectangle(
-            (g["start"], -band), width, band,
-            facecolor=gcolors[g["name"]], edgecolor="white", linewidth=0.6,
-            zorder=2))
-        # strand chevron
-        cx = (g["start"] + g["end"]) / 2.0
-        ax.text(cx, -band / 2.0, g["name"], ha="center", va="center",
-                fontsize=7.5, color="white", zorder=3)
+        gid = f"gene_{g['name']}"
+        rect = Rectangle((g["start"], -band), g["end"] - g["start"], band,
+                         facecolor=gcolors[g["name"]], edgecolor="white",
+                         linewidth=0.6, zorder=2, gid=gid)
+        ax.add_patch(rect)
+        titles[gid] = f"{g['name']} · {g['start']}–{g['end']} ({g['strand']})"
+        box_px = (g["end"] - g["start"]) / xmax * fig_px
+        if box_px >= len(g["name"]) * 8.5:
+            ax.text((g["start"] + g["end"]) / 2.0, -band / 2.0, g["name"],
+                    ha="center", va="center", fontsize=8, color="white", zorder=3)
 
-    # Baseline.
     ax.plot([0, xmax], [0, 0], color="#888780", linewidth=0.8, zorder=1)
 
-    # Lollipops.
-    for v in sorted(variants, key=lambda d: d["pos"]):
+    # Lollipops (each marker its own gid -> hover tooltip).
+    for i, v in enumerate(sorted(variants, key=lambda d: d["pos"])):
         col = gcolors.get(v["gene"], "#5F5E5A")
-        ax.plot([v["pos"], v["pos"]], [0, v["count"]], color="#B4B2A9",
-                linewidth=1.2, zorder=2)
-        ax.scatter([v["pos"]], [v["count"]], s=90, color=col,
-                   edgecolor="white", linewidth=0.8, zorder=4)
-        if v["label"]:
-            ax.text(v["pos"], v["count"] + max_count * 0.06, v["label"],
-                    ha="center", va="bottom", fontsize=7.5, rotation=90,
-                    color="#2C2C2A", zorder=5)
+        ax.plot([v["pos"], v["pos"]], [0, v["count"]], color="#C9C7BE",
+                linewidth=1.1, zorder=2)
+        gid = f"m{i}"
+        ax.plot([v["pos"]], [v["count"]], marker="o", markersize=9, color=col,
+                markeredgecolor="white", markeredgewidth=0.8, zorder=4, gid=gid)
+        titles[gid] = (f"{v['label']} · {v['gene'] or 'intergenic'} · "
+                       f"pos {v['pos']} · {v['count']} genome(s)")
+
+    # Leader-line stacked labels: greedy tier assignment by estimated label width.
+    label_base = max_count * 1.18
+    dy = max_count * 0.16
+    px_per_data = fig_px / xmax
+    tiers_last = []  # rightmost placed-label edge (data units) per tier
+    for v in sorted(variants, key=lambda d: d["pos"]):
+        if not v["label"]:
+            continue
+        half = (len(v["label"]) * 6.6) / px_per_data / 2 + xmax * 0.004
+        tier = 0
+        while tier < len(tiers_last) and v["pos"] - half < tiers_last[tier]:
+            tier += 1
+        if tier == len(tiers_last):
+            tiers_last.append(v["pos"] + half)
+        else:
+            tiers_last[tier] = v["pos"] + half
+        y_lab = label_base + tier * dy
+        ax.plot([v["pos"], v["pos"]], [v["count"], y_lab - dy * 0.25],
+                color="#D8D6CD", linewidth=0.7, zorder=3)
+        ax.text(v["pos"], y_lab, v["label"], ha="center", va="bottom",
+                fontsize=8, color="#2C2C2A", zorder=5)
+    n_tiers = len(tiers_last) if tiers_last else 1
 
     ax.set_xlim(-xmax * 0.02, xmax * 1.02)
-    ax.set_ylim(-band * 1.15, y_top)
-    # integer y ticks
+    ax.set_ylim(-band * 1.2, label_base + n_tiers * dy + max_count * 0.18)
     ax.set_yticks(range(0, max_count + 1, max(1, max_count // 5)))
     ax.set_ylabel("genomes with mutation", fontsize=9)
     ax.set_xlabel(f"{chrom}  ·  position (bp)", fontsize=9)
@@ -287,7 +350,7 @@ def make_lollipop(lps_type, chrom, genes, locus_len, variants, gene_colors):
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
     ax.tick_params(labelsize=8)
-    return fig_to_data_uri(fig)
+    return fig_to_inline_svg(fig, titles, f"ll{lps_type}_")
 
 
 def make_bar(counts, title, xlabel):
@@ -474,14 +537,20 @@ def build_lollipops(report_df, lps_db_dir, ref_map, gene_colors):
                 "pos": pos, "gene": clean(r["GENE"]),
                 "label": short_vartype(r["VARTYPE"]), "samples": set()})
             rec["samples"].add(clean(r["SAMPLE"]))
+        gcolors = color_for_genes(genes, gene_colors)
         variants = [{"pos": v["pos"], "gene": v["gene"], "label": v["label"],
-                     "count": len(v["samples"])} for v in agg.values()]
+                     "count": len(v["samples"]),
+                     "color": gcolors.get(v["gene"], "#5F5E5A")} for v in agg.values()]
         if not variants:
             continue
+        legend = [{"name": g["name"], "color": gcolors[g["name"]],
+                   "start": g["start"], "end": g["end"]} for g in genes]
         figs.append({
             "type": lps_type,
             "n_variants": len(variants),
-            "img": make_lollipop(lps_type, chrom, genes, locus_len, variants, gene_colors),
+            "svg": make_lollipop(lps_type, chrom, genes, locus_len, variants, gcolors),
+            "legend": legend,
+            "variants": sorted(variants, key=lambda d: d["pos"]),
         })
     return figs
 
@@ -537,6 +606,16 @@ TEMPLATE = r"""<!DOCTYPE html>
   .kv .k { color: var(--muted); }
   .muted { color: var(--muted); }
   .figblock { margin: 18px 0 26px; }
+  .lolli-svg { overflow-x: auto; }
+  .lolli-svg svg { max-width: 100%; height: auto; }
+  .lolli-svg g[id*="_m"], .lolli-svg g[id*="_gene_"] { cursor: help; }
+  .legend { margin: 4px 0 12px; }
+  .leg { display: inline-block; font-size: 13px; margin: 2px 14px 2px 0; white-space: nowrap; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+  .coord { color: var(--muted); font-size: 11px; }
+  .vtbl { width: auto; min-width: 360px; max-width: 560px; font-size: 13px; margin: 4px 0 10px; }
+  .vtbl th { cursor: default; }
+  .vtbl th, .vtbl td { padding: 5px 10px; }
   footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
   a { color: var(--accent); }
 </style></head>
@@ -602,9 +681,25 @@ TEMPLATE = r"""<!DOCTYPE html>
 
 {% if lollipops %}
 <h2>Mutations per LPS type</h2>
-<p class="sub">Lollipop height = number of genomes in this run carrying each mutation. Only mutations matching the LPS subtype database are shown.</p>
+<p class="sub">Lollipop height = number of genomes in this run carrying each mutation. Only mutations matching the LPS subtype database are shown. Hover a lollipop or gene box for details.</p>
 {% for l in lollipops %}
-<div class="figblock"><img class="fig" src="{{ l.img }}" alt="{{ l.type }} lollipop"></div>
+<div class="figblock">
+  <div class="lolli-svg">{{ l.svg|safe }}</div>
+  <div class="legend">
+    {% for g in l.legend %}<span class="leg"><span class="sw" style="background: {{ g.color }}"></span>{{ g.name }} <span class="coord">{{ g.start }}–{{ g.end }}</span></span>{% endfor %}
+  </div>
+  <details><summary>{{ l.type }} mutation details ({{ l.n_variants }})</summary>
+    <table class="vtbl">
+      <thead><tr><th>Gene</th><th>Pos</th><th>Change</th><th>Genomes</th></tr></thead>
+      <tbody>
+      {% for v in l.variants %}<tr>
+        <td><span class="sw" style="background: {{ v.color }}"></span>{{ v.gene or "intergenic" }}</td>
+        <td>{{ v.pos }}</td><td>{{ v.label }}</td><td>{{ v.count }}</td>
+      </tr>{% endfor %}
+      </tbody>
+    </table>
+  </details>
+</div>
 {% endfor %}
 {% endif %}
 
