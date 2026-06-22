@@ -14,7 +14,7 @@ Bioinformatics pipeline for *Pasteurella multocida* LPS typing using Illumina se
 
 ## Quick start
 
-**Requirements:** [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 23.04, and either [Singularity](https://docs.sylabs.io/guides/latest/user-guide/) or [Apptainer](https://apptainer.org/docs/user/latest/).
+**Requirements:** [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 25.04.6, and either [Singularity](https://docs.sylabs.io/guides/latest/user-guide/) or [Apptainer](https://apptainer.org/docs/user/latest/).
 
 ```bash
 # 1. Clone the repository
