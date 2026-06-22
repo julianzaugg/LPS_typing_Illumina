@@ -580,15 +580,27 @@ TEMPLATE = r"""<!DOCTYPE html>
   .metric .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
   th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { background: #f6f8fa; cursor: pointer; user-select: none; white-space: nowrap; }
-  th.sortable:after { content: " \2195"; color: var(--muted); font-size: 11px; }
+  th { background: #f6f8fa; user-select: none; white-space: nowrap; }
+  .data-table th { cursor: pointer; position: sticky; top: 0; z-index: 2; }
+  .data-table th[data-sort="none"] { cursor: default; }
+  .data-table th .arrow { color: var(--muted); font-size: 11px; margin-left: 3px; }
+  .data-table tr.filter-row th { position: sticky; top: 33px; z-index: 1; padding: 4px 8px; cursor: auto; }
+  .data-table tr.filter-row input, .data-table tr.filter-row select {
+    width: 100%; font-size: 12px; padding: 3px 5px; border: 1px solid var(--line);
+    border-radius: 4px; background: #fff; color: var(--fg); }
+  .data-table tr.filter-row .range { display: flex; gap: 4px; }
+  .data-table tr.filter-row .range input { width: 50%; }
   tr:hover td { background: #fafbfc; }
   .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: #eaeef2; margin: 1px 2px; }
   .flag { background: var(--warn-bg); color: var(--warn-fg); }
   .flag.untypeable { background: #ffd8d3; color: var(--danger); }
   .ok { color: #1a7f37; }
-  .search { margin: 8px 0 14px; }
-  .search input { font-size: 14px; padding: 7px 10px; width: 280px; border: 1px solid var(--line); border-radius: 6px; }
+  .tablebar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 12px; }
+  .tablebar input[type=text] { font-size: 14px; padding: 7px 10px; width: 280px; border: 1px solid var(--line); border-radius: 6px; }
+  .count { color: var(--muted); font-size: 13px; }
+  .toggle { font-size: 13px; color: var(--fg); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .btn { font-size: 13px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 6px; background: #f6f8fa; cursor: pointer; color: var(--fg); }
+  .btn:hover { background: #eef1f4; }
   img.fig { max-width: 100%; height: auto; }
   .gallery { display: flex; flex-wrap: wrap; gap: 16px; }
   .pheno { border: 1px solid var(--line); border-radius: 8px; padding: 12px; width: 220px; }
@@ -636,13 +648,17 @@ TEMPLATE = r"""<!DOCTYPE html>
 {% if meta.params %}<p class="sub">{{ meta.params }}</p>{% endif %}
 
 <h2>Genome summary</h2>
-<div class="search"><input id="q" type="text" placeholder="Filter genomes…" oninput="filterRows()"></div>
-<table id="summary">
+<div class="tablebar" data-for="summary">
+  <input class="tsearch" type="text" placeholder="Search genomes…">
+  <label class="toggle"><input type="checkbox" class="flagged-only"> Flagged only</label>
+  <span class="count"></span>
+</div>
+<table id="summary" class="data-table">
   <thead><tr>
-    <th class="sortable">Sample</th><th class="sortable">Species</th>
-    <th class="sortable">Type</th><th>Subtype(s)</th><th>Phenotype</th>
-    <th class="sortable">MLST</th><th class="sortable">petG</th>
-    <th class="sortable">Compl.</th><th class="sortable">Contam.</th><th>Flags</th>
+    <th data-filter="text">Sample</th><th data-filter="select">Species</th>
+    <th data-filter="select">Type</th><th data-filter="multi">Subtype(s)</th><th data-filter="multi">Phenotype</th>
+    <th data-filter="select">MLST</th><th data-filter="select">petG</th>
+    <th data-type="num" data-filter="range">Compl.</th><th data-type="num" data-filter="range">Contam.</th><th data-filter="multi">Flags</th>
   </tr></thead>
   <tbody>
   {% for r in records.values() %}
@@ -650,13 +666,13 @@ TEMPLATE = r"""<!DOCTYPE html>
       <td><a href="#g-{{ r.sample }}">{{ r.sample }}</a></td>
       <td>{% if r.species %}<i>{{ r.species }}</i>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td>{{ r.type or "—" }}</td>
-      <td>{% for s in r.subtypes %}<span class="pill">{{ s }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
-      <td>{% for p, d in r.phenotypes.items() %}<span class="pill" title="{{ d }}">{{ p }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
+      <td data-sort="{{ r.subtypes|join(', ') }}">{% for s in r.subtypes %}<span class="pill">{{ s }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
+      <td data-sort="{{ r.phenotypes.keys()|join(', ') }}">{% for p, d in r.phenotypes.items() %}<span class="pill" title="{{ d }}">{{ p }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
       <td>{{ r.mlst or "—" }}</td>
-      <td>{% if r.petg == "yes" %}<span class="ok">yes</span>{% else %}no{% endif %}</td>
+      <td data-sort="{{ r.petg }}">{% if r.petg == "yes" %}<span class="ok">yes</span>{% else %}no{% endif %}</td>
       <td>{{ r.completeness or "—" }}</td>
       <td>{{ r.contamination or "—" }}</td>
-      <td>{% for f in r.flags %}<span class="pill flag {{ 'untypeable' if f == 'untypeable' else '' }}">{{ f }}</span>{% endfor %}</td>
+      <td data-sort="{{ r.flags|join(', ') }}">{% for f in r.flags %}<span class="pill flag {{ 'untypeable' if f == 'untypeable' else '' }}">{{ f }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -705,10 +721,16 @@ TEMPLATE = r"""<!DOCTYPE html>
 
 <h2>Quality control</h2>
 {% if multiqc %}<p>Read-level QC: <a href="{{ multiqc }}">{{ multiqc }}</a> (MultiQC).</p>{% endif %}
-<table>
-  <thead><tr><th>Sample</th><th>Species</th><th>Completeness</th><th>Contamination</th>
-  <th>Assembly size</th><th>Contigs</th><th>N50</th><th>Coverage</th>
-  <th>Kaptive confidence</th></tr></thead>
+<div class="tablebar" data-for="qc">
+  <input class="tsearch" type="text" placeholder="Search…">
+  <span class="count"></span>
+</div>
+<table id="qc" class="data-table">
+  <thead><tr><th data-filter="text">Sample</th><th data-filter="select">Species</th>
+  <th data-type="num" data-filter="range">Completeness</th><th data-type="num" data-filter="range">Contamination</th>
+  <th data-type="num" data-filter="range">Assembly size</th><th data-type="num" data-filter="range">Contigs</th>
+  <th data-type="num" data-filter="range">N50</th><th data-type="num" data-filter="range">Coverage</th>
+  <th data-filter="select">Kaptive confidence</th></tr></thead>
   <tbody>
   {% for r in records.values() %}
     <tr>
@@ -724,8 +746,12 @@ TEMPLATE = r"""<!DOCTYPE html>
 
 {% if has_amr %}
 <h2>Antimicrobial resistance</h2>
-<table>
-  <thead><tr><th>Sample</th><th>Gene</th><th>Element name</th><th>Class</th><th>Subclass</th><th>% identity</th></tr></thead>
+<div class="tablebar" data-for="amr">
+  <input class="tsearch" type="text" placeholder="Search…">
+  <span class="count"></span>
+</div>
+<table id="amr" class="data-table">
+  <thead><tr><th data-filter="select">Sample</th><th data-filter="select">Gene</th><th data-filter="text">Element name</th><th data-filter="select">Class</th><th data-filter="select">Subclass</th><th data-type="num" data-filter="range">% identity</th></tr></thead>
   <tbody>
   {% for r in records.values() %}{% for a in r.amr %}
     <tr><td>{{ r.sample }}</td><td>{{ a.symbol }}</td><td>{{ a.name }}</td>
@@ -736,6 +762,14 @@ TEMPLATE = r"""<!DOCTYPE html>
 {% endif %}
 
 <h2>Per-genome detail</h2>
+{% if records|length > 1 %}
+<div class="tablebar">
+  <input id="detail-q" type="text" placeholder="Filter by sample or type…">
+  <button type="button" class="btn" id="expand-all">Expand all</button>
+  <button type="button" class="btn" id="collapse-all">Collapse all</button>
+  <span class="count" id="detail-count"></span>
+</div>
+{% endif %}
 {% for r in records.values() %}
 <details id="g-{{ r.sample }}" {% if records|length == 1 %}open{% endif %}>
   <summary>{{ r.sample }} — {{ r.type or "untypeable" }}{% if r.phenotypes %} · {{ r.phenotypes.keys()|join(", ") }}{% endif %}</summary>
@@ -771,26 +805,148 @@ TEMPLATE = r"""<!DOCTYPE html>
 
 </div>
 <script>
-function filterRows() {
-  var q = document.getElementById('q').value.toLowerCase();
-  document.querySelectorAll('#summary tbody tr').forEach(function (tr) {
-    tr.style.display = tr.textContent.toLowerCase().indexOf(q) > -1 ? '' : 'none';
-  });
-}
-document.querySelectorAll('#summary thead th.sortable').forEach(function (th, idx) {
-  th.addEventListener('click', function () {
-    var tb = th.closest('table').querySelector('tbody');
-    var rows = Array.prototype.slice.call(tb.querySelectorAll('tr'));
-    var asc = th.dataset.asc !== 'true'; th.dataset.asc = asc;
-    rows.sort(function (a, b) {
-      var x = a.children[idx].textContent.trim(), y = b.children[idx].textContent.trim();
-      var nx = parseFloat(x), ny = parseFloat(y);
-      if (!isNaN(nx) && !isNaN(ny)) { return asc ? nx - ny : ny - nx; }
-      return asc ? x.localeCompare(y) : y.localeCompare(x);
+// Sortable + filterable tables. Each table.data-table is paired with a
+// preceding .tablebar[data-for="<table id>"] holding its search box / counter.
+function enhanceTable(table) {
+  var thead = table.tHead, tbody = table.tBodies[0];
+  if (!thead || !tbody) return;
+  var ths = Array.prototype.slice.call(thead.rows[0].cells);
+  var bar = document.querySelector('.tablebar[data-for="' + table.id + '"]');
+  var searchInput = bar ? bar.querySelector('.tsearch') : null;
+  var countEl = bar ? bar.querySelector('.count') : null;
+  var flaggedOnly = bar ? bar.querySelector('.flagged-only') : null;
+  var controls = [];
+
+  function sortVal(tr, i) {
+    var td = tr.cells[i];
+    if (!td) return '';
+    return td.dataset.sort != null ? td.dataset.sort : td.textContent.trim();
+  }
+
+  // --- sorting (column index is the real cell index, fixing the old offset bug) ---
+  ths.forEach(function (th, i) {
+    if (th.dataset.sort === 'none') return;
+    var arrow = document.createElement('span');
+    arrow.className = 'arrow'; arrow.textContent = '↕';
+    th.appendChild(arrow);
+    th.addEventListener('click', function () {
+      var asc = th.dataset.dir !== 'asc';
+      ths.forEach(function (o) {
+        if (o !== th) { delete o.dataset.dir; var a = o.querySelector('.arrow'); if (a) a.textContent = '↕'; }
+      });
+      th.dataset.dir = asc ? 'asc' : 'desc';
+      arrow.textContent = asc ? '▲' : '▼';
+      var num = th.dataset.type === 'num';
+      var rows = Array.prototype.slice.call(tbody.rows);
+      rows.sort(function (a, b) {
+        var x = sortVal(a, i), y = sortVal(b, i);
+        if (num) {
+          var nx = parseFloat(x), ny = parseFloat(y);
+          if (isNaN(nx) && isNaN(ny)) return 0;
+          if (isNaN(nx)) return 1;            // missing values always last
+          if (isNaN(ny)) return -1;
+          return asc ? nx - ny : ny - nx;
+        }
+        return asc ? x.localeCompare(y) : y.localeCompare(x);
+      });
+      rows.forEach(function (r) { tbody.appendChild(r); });
     });
-    rows.forEach(function (r) { tb.appendChild(r); });
   });
-});
+
+  // --- per-column filter row ---
+  var filterRow = document.createElement('tr');
+  filterRow.className = 'filter-row';
+  ths.forEach(function (th, i) {
+    var cell = document.createElement('th');
+    var kind = th.dataset.filter || 'none';
+    if (kind === 'select' || kind === 'multi') {
+      var seen = {};
+      Array.prototype.slice.call(tbody.rows).forEach(function (tr) {
+        var raw = sortVal(tr, i);
+        (kind === 'multi' ? raw.split(',') : [raw]).forEach(function (t) {
+          t = t.trim(); if (t && t !== '—') seen[t] = 1;
+        });
+      });
+      var sel = document.createElement('select');
+      sel.innerHTML = '<option value="">All</option>';
+      Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (o) {
+        var op = document.createElement('option'); op.value = o; op.textContent = o; sel.appendChild(op);
+      });
+      sel.addEventListener('change', apply);
+      cell.appendChild(sel);
+      controls.push({ i: i, kind: kind, el: sel });
+    } else if (kind === 'range') {
+      var wrap = document.createElement('div'); wrap.className = 'range';
+      var lo = document.createElement('input'), hi = document.createElement('input');
+      lo.type = hi.type = 'number'; lo.placeholder = 'min'; hi.placeholder = 'max';
+      lo.addEventListener('input', apply); hi.addEventListener('input', apply);
+      wrap.appendChild(lo); wrap.appendChild(hi); cell.appendChild(wrap);
+      controls.push({ i: i, kind: kind, lo: lo, hi: hi });
+    } else if (kind === 'text') {
+      var inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'filter';
+      inp.addEventListener('input', apply);
+      cell.appendChild(inp);
+      controls.push({ i: i, kind: kind, el: inp });
+    }
+    filterRow.appendChild(cell);
+  });
+  thead.appendChild(filterRow);
+
+  function matches(tr) {
+    if (searchInput && searchInput.value &&
+        tr.textContent.toLowerCase().indexOf(searchInput.value.toLowerCase()) === -1) return false;
+    if (flaggedOnly && flaggedOnly.checked && !tr.querySelector('.flag')) return false;
+    for (var c = 0; c < controls.length; c++) {
+      var ctl = controls[c], val = sortVal(tr, ctl.i);
+      if (ctl.kind === 'select') {
+        if (ctl.el.value && val.trim() !== ctl.el.value) return false;
+      } else if (ctl.kind === 'multi') {
+        if (ctl.el.value && val.split(',').map(function (t) { return t.trim(); }).indexOf(ctl.el.value) === -1) return false;
+      } else if (ctl.kind === 'text') {
+        if (ctl.el.value && val.toLowerCase().indexOf(ctl.el.value.toLowerCase()) === -1) return false;
+      } else if (ctl.kind === 'range') {
+        var n = parseFloat(val);
+        if (ctl.lo.value !== '' && (isNaN(n) || n < parseFloat(ctl.lo.value))) return false;
+        if (ctl.hi.value !== '' && (isNaN(n) || n > parseFloat(ctl.hi.value))) return false;
+      }
+    }
+    return true;
+  }
+
+  function apply() {
+    var shown = 0, total = tbody.rows.length;
+    Array.prototype.slice.call(tbody.rows).forEach(function (tr) {
+      var ok = matches(tr); tr.style.display = ok ? '' : 'none'; if (ok) shown++;
+    });
+    if (countEl) countEl.textContent = 'Showing ' + shown + ' of ' + total;
+  }
+
+  if (searchInput) searchInput.addEventListener('input', apply);
+  if (flaggedOnly) flaggedOnly.addEventListener('change', apply);
+  apply();
+}
+document.querySelectorAll('table.data-table').forEach(enhanceTable);
+
+// Per-genome detail: text filter + expand/collapse all.
+(function () {
+  var dq = document.getElementById('detail-q');
+  var details = Array.prototype.slice.call(document.querySelectorAll('details[id^="g-"]'));
+  var dc = document.getElementById('detail-count');
+  function applyDetail() {
+    var q = dq ? dq.value.toLowerCase() : '', shown = 0;
+    details.forEach(function (d) {
+      var s = d.querySelector('summary');
+      var ok = !q || (s && s.textContent.toLowerCase().indexOf(q) > -1);
+      d.style.display = ok ? '' : 'none'; if (ok) shown++;
+    });
+    if (dc) dc.textContent = 'Showing ' + shown + ' of ' + details.length;
+  }
+  if (dq) dq.addEventListener('input', applyDetail);
+  var ea = document.getElementById('expand-all'), ca = document.getElementById('collapse-all');
+  if (ea) ea.addEventListener('click', function () { details.forEach(function (d) { d.open = true; }); });
+  if (ca) ca.addEventListener('click', function () { details.forEach(function (d) { d.open = false; }); });
+  applyDetail();
+})();
 </script>
 </body></html>
 """
