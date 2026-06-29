@@ -423,9 +423,9 @@ def build_records(report_df, qc):
         petg = ""
         mlst = ""
         for _, r in rows.iterrows():
-            ph = clean(r.get("PHENOTYPE"))
+            ph = clean(r.get("PREDICTED_PHENOTYPE"))
             if ph:
-                phenos[ph] = clean(r.get("PHENOTYPE_DESCRIPTION"))
+                phenos[ph] = clean(r.get("PREDICTED_PHENOTYPE_DESCRIPTION"))
             if clean(r.get("PETG_PRESENT")).lower() == "yes":
                 petg = "yes"
             if not mlst:

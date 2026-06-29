@@ -629,7 +629,7 @@ process report {
 		}
 	}
 	END {
-		print "SAMPLE", "MLST", "TYPE", "SUBTYPE", "VARTYPE", "ISOLATE_DATABASE", "CHROM", "POS", "REF", "ALT", "GENE", "PHENOTYPE", "PHENOTYPE_DESCRIPTION", "PETG_PRESENT", "NOTE"
+		print "SAMPLE", "MLST", "TYPE", "SUBTYPE", "VARTYPE", "ISOLATE_DATABASE", "CHROM", "POS", "REF", "ALT", "GENE", "PREDICTED_PHENOTYPE", "PREDICTED_PHENOTYPE_DESCRIPTION", "PETG_PRESENT", "NOTE"
 		for (i = 1; i <= row_count; i++) {
 			sample = row_sample[i]
 			idx = row_idx[i]

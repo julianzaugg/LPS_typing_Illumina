@@ -373,8 +373,8 @@ The `10_report` folder contains combined results across all samples:
   * **REF**: reference allele
   * **ALT**: alternate allele identified in the sample
   * **GENE**: gene containing the variant
-  * **PHENOTYPE**: LPS phenotype from the subtype database, when available
-  * **PHENOTYPE_DESCRIPTION**: phenotype description from `phenotype_lookup.tsv`, when available
+  * **PREDICTED_PHENOTYPE**: predicted LPS phenotype from the subtype database, when available
+  * **PREDICTED_PHENOTYPE_DESCRIPTION**: description of the predicted phenotype from `phenotype_lookup.tsv`, when available
   * **PETG_PRESENT**: petG presence (`yes` when present, blank otherwise)
   * **NOTE**: subtype database note for the matched variant, when available
 * AMRFinderPlus combined results (`12_Illumina_amrfinder.tsv`)
