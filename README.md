@@ -29,13 +29,15 @@ cd LPS_typing_Illumina
 # 4. Run (local execution with Apptainer)
 nextflow run main.nf -profile apptainer \
   --samplesheet samplesheet/samples.csv \
-  --outdir results
+  --outdir results \
+  -resume
 
 # On a SLURM cluster, add the slurm profile and your account name:
 nextflow run main.nf -profile apptainer,slurm \
   --samplesheet samplesheet/samples.csv \
   --outdir results \
-  --slurm_account YOUR_ACCOUNT
+  --slurm_account YOUR_ACCOUNT \
+  -resume
 ```
 
 ---
