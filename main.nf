@@ -243,81 +243,119 @@ process summary_checkm {
 	"""
 }
 
-process download_kraken_db {
-	publishDir "${projectDir}/databases/",  mode: 'copy'
-	output:
-		path("k2_pluspf_20240605"), emit: kraken_db_folder
-	when:
-	params.download_kraken_db
-	script:
-	"""	
-	wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20240605.tar.gz
-	tar -xvzf k2_pluspf_20240605.tar.gz
-	mkdir k2_pluspf_20240605
-	mv *k2d *md5 *distrib *tsv *txt *map k2_pluspf_20240605/
-	"""
-}
-
-process kraken {
-        cpus "${params.threads}"
-        tag "${sample}"
+process sylph_download_db {
+        cpus 1
         label "cpu"
-        label "high_memory"
-	publishDir "$params.outdir/$sample/6_kraken",  mode: 'copy', pattern: "*.log", saveAs: { filename -> "${sample}_$filename" }
-	publishDir "$params.outdir/$sample/6_kraken",  mode: 'copy', pattern: '*txt', saveAs: { filename -> "${sample}_$filename" }
-	publishDir "$params.outdir/$sample/6_kraken",  mode: 'copy', pattern: '*tsv.gz', saveAs: { filename -> "${sample}_$filename" }
+        publishDir "$params.outdir/databases/sylph_database", mode: 'copy', pattern: "*.syldb"
         input:
-                tuple val(sample), path(reads1), path(reads2), path(reads1_trimmed), path(reads2_trimmed), path(kraken_db)
+                val(db)
         output:
-                tuple val(sample), path(reads1_trimmed), path(reads2_trimmed), path("kraken2_report.txt"), path("kraken2.tsv.gz"),  emit: kraken_results
-                path("kraken.log")
+                path("*.syldb"), emit: sylph_db
         when:
-        !params.skip_kraken
+        !params.skip_download_sylph_db
         script:
         """
-	kraken2 --gzip-compressed --db ${params.kraken_db} --report kraken2_report.txt --paired ${reads1_trimmed} ${reads2_trimmed} > kraken2.tsv
-        gzip kraken2.tsv
-	cp .command.log kraken.log
+        echo "${db}"
+        wget -c "${db}"
         """
 }
 
-process bracken {
-        cpus "${params.bracken_threads}"
+process sylph {
+        cpus "${params.sylph_threads}"
         tag "${sample}"
         label "cpu"
-        label "high_memory"
-        publishDir "$params.outdir/$sample/6_kraken",  mode: 'copy', pattern: "*.log", saveAs: { filename -> "${sample}_$filename" }
-        publishDir "$params.outdir/$sample/6_kraken",  mode: 'copy', pattern: '*tsv'
+        publishDir "$params.outdir/$sample/6_sylph",  mode: 'copy', pattern: "*.tsv", saveAs: { filename -> "${sample}_$filename" }
         input:
-                tuple val(sample), path(reads1_trimmed), path(reads2_trimmed), path(kraken2_report), path(kraken_tsv)
+                tuple val(sample), path(reads1_trimmed), path(reads2_trimmed), path(db_files)
         output:
-                path("bracken.log")
-		path("*bracken_species.tsv"), emit: bracken_results
+                tuple val(sample), path("*sylph_profile.tsv"), emit: sylph_profile
         when:
-        !params.skip_kraken
+        !params.skip_sylph
         script:
         """
-        bracken -d ${params.kraken_db} -i ${kraken2_report} -o bracken_species.tsv  -w bracken_report.txt -r 100 -l S -t ${params.bracken_threads}
-	mv bracken_species.tsv ${sample}_bracken_species.tsv
-        cp .command.log bracken.log
+        sylph profile ${db_files.join(' ')} \
+        -t ${params.sylph_threads} \
+        -1 ${reads1_trimmed} -2 ${reads2_trimmed} \
+        --output-file sylph_profile.tsv
         """
 }
 
-process summary_bracken {
+process sylph_tax_download_metadata {
+        cpus 1
+        label "cpu"
+        publishDir "$params.outdir/databases/sylph_database", mode: 'copy', pattern: "*.gz"
+        input:
+                val(metadata_file)
+        output:
+                path("*.gz"), emit: sylph_tax_metadata
+        when:
+        !params.skip_download_sylph_db
+        script:
+        """
+        wget -c "${metadata_file}" -O \$PWD/\$(basename $metadata_file)
+        """
+}
+
+process sylph_tax {
+        cpus "${params.sylph_threads}"
+        tag "${sample}"
+        label "cpu"
+        publishDir "$params.outdir/$sample/6_sylph",  mode: 'copy', pattern: "*.tsv", saveAs: { filename -> "${sample}_$filename" }
+        publishDir "$params.outdir/$sample/6_sylph",  mode: 'copy', pattern: "*.sylphmpa", saveAs: { filename -> "${sample}_$filename" }
+        input:
+                tuple val(sample), path(sylph_profile), path(metadata_files)
+        output:
+                tuple val(sample), path("merged_taxonomic_abundance.tsv"), path("merged_sequence_abundance.tsv"), emit: sylph_tax
+        when:
+        !params.skip_sylph
+        script:
+        """
+        sylph-tax taxprof \
+        ${sylph_profile} \
+        -o \$PWD/ \
+        -t ${metadata_files.join(' ')}
+
+        # Merge taxonomy outputs
+        sylph-tax merge \$PWD/*.sylphmpa \
+        --column relative_abundance \
+        -o \$PWD/merged_taxonomic_abundance.tsv
+
+        sylph-tax merge \$PWD/*.sylphmpa \
+        --column sequence_abundance \
+        -o \$PWD/merged_sequence_abundance.tsv
+        """
+}
+
+process sylph_summary_per_sample {
+        input:
+               tuple val(sample), path(taxonomic_abundances), path(sequence_abundances)
+        output:
+               tuple val(sample), path("${sample}_sylph_summary.tsv")
+        script:
+        """
+        taxonomic_abundance_top_species=\$(grep "s__" ${taxonomic_abundances} | grep -v "t__" | sort -t \$'\t' -gr -k 2 | head -n 1 | sed "s/.*s__//g")
+        sequence_abundance_top_species=\$(grep "s__" ${sequence_abundances} | grep -v "t__" | sort -t \$'\t' -gr -k 2 | head -n 1 | sed "s/.*s__//g")
+
+        taxonomic_abundance_pasteurella_multocida=\$(grep "s__Pasteurella multocida" ${taxonomic_abundances} | grep -v "t__" | sort -t \$'\t' -gr -k 2 | head -n 1 | sed "s/.*s__//g" | awk -F "\t" '{print \$2}')
+        sequence_abundance_pasteurella_multocida=\$(grep "s__Pasteurella multocida" ${sequence_abundances} | grep -v "t__" | sort -t \$'\t' -gr -k 2 | head -n 1 | sed "s/.*s__//g" | awk -F "\t" '{print \$2}')
+        echo -e "${sample}\t\$taxonomic_abundance_top_species\t\$sequence_abundance_top_species\tPasteurella_multocida\t\$taxonomic_abundance_pasteurella_multocida\t\$sequence_abundance_pasteurella_multocida" > ${sample}_sylph_summary.tsv
+        """
+}
+
+process summary_sylph {
         publishDir "$params.outdir/10_report",  mode: 'copy', pattern: '*tsv'
         input:
-                path(bracken_files)
+                path(sylph_summary_files)
         output:
-                tuple path("6_Illumina_bracken_pasteurella_multocida_species_abundance.tsv") ,path("6_Illumina_bracken_most_abundant_species.tsv"), emit: bracken_summary
+                path("6_Illumina_sylph_summary.tsv"), emit: sylph_summary
         when:
-	!params.skip_kraken
-	script:
+        !params.skip_sylph
+        script:
         """
-        echo -e sampleID\\\tname\\\ttaxonomy_id\\\ttaxonomy_lvl\\\tkraken_assigned_reads\\\tadded_reads\\\tnew_est_reads\\\tfraction_total_reads > header_bracken
-        for file in `ls *_bracken_species.tsv`; do fileName=\$(basename \$file); sample=\${fileName%%_bracken_species.tsv}; grep Pasteurella \$file | grep multocida | sed s/^/\${sample}\\\t/  >> 6_bracken_pasteurella_multocida_species_abundance.tsv.tmp; done
-        cat header_bracken 6_bracken_pasteurella_multocida_species_abundance.tsv.tmp > 6_Illumina_bracken_pasteurella_multocida_species_abundance.tsv
-	for file in `ls *_bracken_species.tsv`; do fileName=\$(basename \$file); sample=\${fileName%%_bracken_species.tsv}; grep -v taxonomy_id \$file | sort -t\$'\t' -k7gr | head -1 | sed s/^/\${sample}\\\t/  >> 6_bracken_most_abundant_species.tsv.tmp; done
-	cat header_bracken 6_bracken_most_abundant_species.tsv.tmp > 6_Illumina_bracken_most_abundant_species.tsv
+        echo -e "sample\ttop_species_by_taxonomic_abundance\ttaxonomic_abundance_for_top_species\ttop_species_by_sequence_abundance\tsequence_abundance_for_top_species\tPasteurella_multocida\ttaxonomic_abundance_for_pasteurella_multocida\tsequence_abundance_for_pasteurella_multocida" > 6_Illumina_sylph_summary.tsv
+        for file in ${sylph_summary_files.join(' ')}; do
+            cat \$file >> 6_Illumina_sylph_summary.tsv
+        done
         """
 }
 
@@ -816,15 +854,43 @@ workflow {
 	summary_shovill(shovill.out.assembly_fasta.collect())
 	quast(shovill.out.assembly_out)
 	summary_quast(quast.out.quast_results.collect())
-	if (!params.skip_kraken) {
-		if (params.download_kraken_db) {
-			download_kraken_db()
-			kraken(ch_trimmed.combine(download_kraken_db.out.kraken_db_folder))
+	if (!params.skip_sylph) {
+		// Use the paired trimmed reads for taxonomy classification
+		ch_sylph_reads = ch_trimmed.map { sample, r1, r2, r1t, r2t -> tuple(sample, r1t, r2t) }
+		if (!params.skip_download_sylph_db) {
+			// Download the Sylph reference databases
+			ch_sylph_db = Channel.of("${params.sylph_db_gtdb_file}", "${params.sylph_db_fungal_file}")
+			ch_downloaded_dbs = sylph_download_db(ch_sylph_db).sylph_db
+			ch_db_list = ch_downloaded_dbs.collect()
+
+			// Download the Sylph-taxa metadata
+			ch_sylph_metadata = Channel.of("${params.sylph_tax_gtdb_metadata}", "${params.sylph_tax_fungal_metadata}")
+			sylph_tax_download_metadata(ch_sylph_metadata).collect().set{ sylph_tax_metadata }
+
+			ch_db_list.map { dbs -> tuple([dbs]) }.set { ch_db_tuple }
+			sylph_tax_metadata.map { dbs -> tuple([dbs]) }.set { sylph_tax_metadata_tuple }
 		} else {
-			kraken(ch_trimmed.combine(Channel.fromPath("${params.kraken_db}")))
+			Channel.fromPath("${params.sylph_db}").collect().map { dbs -> tuple([dbs]) }.set { ch_db_tuple }
+			Channel.fromPath("${params.sylph_metadata}").collect().map { dbs -> tuple([dbs]) }.set { sylph_tax_metadata_tuple }
 		}
-		bracken(kraken.out.kraken_results)
-		summary_bracken(bracken.out.bracken_results.collect())
+
+		// Run sylph
+		ch_sylph_reads
+			.combine(ch_db_tuple)
+			.map { sample, r1t, r2t, dbs -> tuple(sample, r1t, r2t, dbs) }
+			.set { ch_sylph_input }
+		sylph(ch_sylph_input)
+
+		// Run sylph-tax
+		sylph.out.sylph_profile.combine(sylph_tax_metadata_tuple).set { ch_sylph_tax_input }
+		sylph_tax(ch_sylph_tax_input)
+
+		// Per-sample and aggregated summaries
+		sylph_summary_per_sample(sylph_tax.out.sylph_tax)
+			.map { sample, summary_file -> summary_file }
+			.collect()
+			.set { all_sylph_summaries }
+		summary_sylph(all_sylph_summaries)
 	}
 	if (!params.skip_checkm) {
 		if (params.download_checkm_db) {
@@ -885,8 +951,8 @@ workflow {
 	if (!params.skip_checkm) {
 		html_inputs_ch = html_inputs_ch.mix(summary_checkm.out.checkm_summary)
 	}
-	if (!params.skip_kraken) {
-		html_inputs_ch = html_inputs_ch.mix(summary_bracken.out.bracken_summary.flatten())
+	if (!params.skip_sylph) {
+		html_inputs_ch = html_inputs_ch.mix(summary_sylph.out.sylph_summary)
 	}
 	if (!params.skip_mlst) {
 		html_inputs_ch = html_inputs_ch.mix(summary_mlst.out.mlst_summary)
@@ -895,7 +961,7 @@ workflow {
 		html_inputs_ch = html_inputs_ch.mix(summary_amrfinder.out.amrfinder_summary)
 	}
 	skipped_list = []
-	if (params.skip_kraken) skipped_list << 'kraken/bracken'
+	if (params.skip_sylph) skipped_list << 'sylph'
 	if (params.skip_checkm) skipped_list << 'checkm'
 	if (params.skip_quast) skipped_list << 'quast'
 	if (params.skip_mlst) skipped_list << 'mlst'

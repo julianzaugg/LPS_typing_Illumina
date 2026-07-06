@@ -41,7 +41,7 @@ F_KAPTIVE = "7_Illumina_kaptive_results.tsv"
 F_QUAST = "4_Illumina_quast_report.tsv"
 F_SHOVILL = "3_Illumina_shovill_stats.tsv"
 F_CHECKM = "5_Illumina_checkm_lineage_wf_results.tsv"
-F_BRACKEN = "6_Illumina_bracken_most_abundant_species.tsv"
+F_SYLPH = "6_Illumina_sylph_summary.tsv"
 F_AMR = "12_Illumina_amrfinder.tsv"
 F_MULTIQC = "2_Illumina_multiqc_report.html"
 
@@ -391,6 +391,22 @@ def index_by_sample(df, sample_col):
     return out
 
 
+def parse_sylph(df):
+    """Sylph taxonomy summary -> {sample: {'species': <top species>}}.
+
+    Keyed on ``sample`` (not ``sampleID``); the genome's species for the QC
+    table and the off-target flag is ``top_species_by_taxonomic_abundance``.
+    """
+    out = {}
+    if df is None or "sample" not in df.columns:
+        return out
+    for _, row in df.iterrows():
+        s = clean(row["sample"])
+        if s and s not in out:
+            out[s] = {"species": clean(row.get("top_species_by_taxonomic_abundance"))}
+    return out
+
+
 def parse_quast(df):
     """QUAST matrix: metric rows x sample columns (index col = 'Assembly')."""
     out = {}
@@ -447,8 +463,8 @@ def build_records(report_df, qc):
         ck = qc["checkm"].get(s, {})
         completeness = clean(ck.get("Completeness"))
         contamination = clean(ck.get("Contamination"))
-        br = qc["bracken"].get(s, {})
-        species = clean(br.get("name"))
+        tx = qc["taxonomy"].get(s, {})
+        species = clean(tx.get("species"))
         kp = qc["kaptive"].get(s, {})
         qd = qc["quast"].get(s, {})
         sh = qc["shovill"].get(s, {})
@@ -981,7 +997,7 @@ def main(argv=None):
 
     qc = {
         "checkm": index_by_sample(read_tsv(rdir / F_CHECKM), "sampleID"),
-        "bracken": index_by_sample(read_tsv(rdir / F_BRACKEN), "sampleID"),
+        "taxonomy": parse_sylph(read_tsv(rdir / F_SYLPH)),
         "kaptive": index_by_sample(read_tsv(rdir / F_KAPTIVE), "sampleID"),
         "quast": parse_quast(read_tsv(rdir / F_QUAST)),
         "shovill": index_by_sample(read_tsv(rdir / F_SHOVILL), "sample"),

@@ -62,9 +62,9 @@ Paired-end reads are assembled using [Shovill](https://github.com/tseemann/shovi
 
 [CheckM](https://github.com/Ecogenomics/CheckM) v1.2.2 (command `lineage_wf`) estimates genome completeness and contamination from marker genes.
 
-### 6. Kraken2/Bracken taxonomy classification
+### 6. Sylph taxonomy classification
 
-Trimmed reads are classified with [Kraken2](https://github.com/DerrickWood/kraken2) v2.1.3, and abundance is re-estimated at species level with [Bracken](https://github.com/jenniferlu717/Bracken) v3.0. The default database is the PlusPF index (Standard + RefSeq protozoa and fungi), see the [database index page](https://benlangmead.github.io/aws-indexes/k2) for details.
+Trimmed reads are classified with the containment-based taxonomy profiler [Sylph](https://sylph-docs.github.io), and taxonomic labels are assigned with [sylph-tax](https://github.com/bluenote-1577/sylph-tax). Both the GTDB R226 and RefSeq Fungi databases are used, downloaded from the [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/).
 
 ### 7. LPS typing using Kaptive
 
@@ -169,21 +169,21 @@ The LPS reference data and Kaptive database are **included in the repository** u
 |----------|-------------|--------------|---------------|--------|-------------|---------------|
 | LPS references | Steps 7, 8, 10, 11 | `databases/LPS/` | Included in repo | This repository | < 1 MB | Included — no action needed |
 | Kaptive3 LPS DB | Step 7 | `databases/kaptive3_LPS_db_v1/9lps.gbk` | Included in repo | This repository | < 200 KB | Included — no action needed |
-| Kraken2 + Bracken | Step 6 | `databases/k2_pluspf_20240605` | k2_pluspf_20240605 | [AWS index page](https://benlangmead.github.io/aws-indexes/k2) | ~ 70 GB | Add `--download_kraken_db`, or download manually (see below) |
+| Sylph GTDB + Fungi | Step 6 | `databases/sylph/` | GTDB R226, Fungi RefSeq 2024-07-25 | [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/) | ~ 12 GB | Add `--skip_download_sylph_db false`, or download manually (see below) |
 | CheckM | Step 5 | `databases/checkm_data_2015_01_16` | 2015_01_16 | [CheckM installation docs](https://github.com/Ecogenomics/CheckM/wiki/Installation) | ~ 1.4 GB | Add `--download_checkm_db`, or download manually (see below) |
 | Bakta | Step 12 | `databases/bakta_db/db` | v6.0 (2025-02-24) | [Zenodo 10.5281/zenodo.14916843](https://zenodo.org/records/14916843) | ~ 65 GB | Add `--download_bakta_db`, or download manually (see below) |
 | AMRFinderPlus | Step 13 | `databases/amrfinderplus/amrfinderplus_db/latest` | 2025-03-25.1 | [NCBI AMRFinderPlus wiki](https://github.com/ncbi/amr/wiki/AMRFinderPlus-database) | ~ 300 MB | Add `--download_amrfinder_db`, or download manually (see below) |
 
-> **Reproducibility note:** The `--download_*` flags retrieve the latest available database version, which may differ from the tested versions listed above and could affect results. For reproducible analyses, use pinned database versions and specify their paths explicitly with `--kraken_db`, `--checkm_db`, `--bakta_db`, and `--amrfinder_db`.
+> **Reproducibility note:** The `--download_*` flags (and `--skip_download_sylph_db false`) retrieve the latest available database version, which may differ from the tested versions listed above and could affect results. For reproducible analyses, use pinned database versions and specify their paths explicitly with `--sylph_db`, `--sylph_metadata`, `--checkm_db`, `--bakta_db`, and `--amrfinder_db`.
 
 ### Downloading databases via pipeline flags
 
 Add the relevant flag(s) on the first run. The database will be downloaded into `databases/` and reused automatically on subsequent runs (omit the flag after the first download).
 
 ```bash
-# Download Kraken2/Bracken database (~70 GB, slow):
+# Download Sylph databases (GTDB R226 + Fungi RefSeq, ~12 GB):
 nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
-  --outdir results --download_kraken_db
+  --outdir results --skip_download_sylph_db false
 
 # Download CheckM database (~1.4 GB):
 nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
@@ -203,10 +203,14 @@ nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
 If you prefer to download databases yourself (e.g. for speed or reproducibility), download them to any location and point the pipeline to them:
 
 ```bash
-# Kraken2 (tested version k2_pluspf_20240605):
-wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20240605.tar.gz
-tar -xvzf k2_pluspf_20240605.tar.gz -C /path/to/databases/k2_pluspf_20240605/
-# Then run with: --kraken_db /path/to/databases/k2_pluspf_20240605
+# Sylph databases (GTDB R226 + Fungi RefSeq) and matching sylph-tax metadata:
+mkdir -p /path/to/databases/sylph
+cd /path/to/databases/sylph
+wget http://faust.compbio.cs.cmu.edu/sylph-stuff/gtdb-r226-c200-dbv1.syldb
+wget http://faust.compbio.cs.cmu.edu/sylph-stuff/fungi-refseq-2024-07-25-c200-v0.3.syldb
+wget https://zenodo.org/records/15314244/files/gtdb_r226_metadata.tsv.gz
+wget https://zenodo.org/records/14320496/files/fungi_refseq_2024-07-25_metadata.tsv.gz
+# Then run with: --sylph_db "/path/to/databases/sylph/*.syldb" --sylph_metadata "/path/to/databases/sylph/*.tsv.gz"
 
 # CheckM (tested version checkm_data_2015_01_16):
 wget https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz
@@ -254,11 +258,15 @@ tar -xvzf db.tar.gz -C /path/to/databases/bakta_db/
 * `--checkm_db`: path to the CheckM database folder (default=`databases/checkm_data_2015_01_16`)
 * `--download_checkm_db`: download the CheckM database automatically (default=false)
 
-### 6. Kraken2/Bracken taxonomy classification
+### 6. Sylph taxonomy classification
 
-* `--skip_kraken`: skip the Kraken2/Bracken classification step (default=false)
-* `--kraken_db`: path to the Kraken2 database folder (default=`databases/k2_pluspf_20240605`)
-* `--download_kraken_db`: download the Kraken2 database automatically (default=false)
+* `--skip_sylph`: skip the Sylph classification step (default=false)
+* `--skip_download_sylph_db`: skip downloading the Sylph databases (default=true — assumes databases are already present at `--sylph_db`)
+* `--sylph_db_gtdb_file` and `--sylph_db_fungal_file`: URLs for Sylph GTDB and Fungi RefSeq database files to download
+* `--sylph_tax_gtdb_metadata` and `--sylph_tax_fungal_metadata`: URLs for Sylph-tax metadata files to download (must match the database files)
+* `--sylph_db`: glob pattern for pre-downloaded Sylph database files (default=`databases/sylph/*.syldb`)
+* `--sylph_metadata`: glob pattern for pre-downloaded Sylph-tax metadata files (default=`databases/sylph/*.tsv.gz`)
+* `--sylph_threads`: number of threads for the Sylph classification step (default=6)
 
 ### 7. LPS typing using Kaptive
 
@@ -320,11 +328,10 @@ Each sample folder contains:
   * SPAdes assembly graph (`sample_id_contigs.gfa`)
 * **4_quast:** QUAST report (`sample_id_report.tsv`).
 * **5_checkm:** CheckM lineage workflow results (`sample_id_checkm_lineage_wf_results.tsv`).
-* **6_kraken:** Kraken2/Bracken taxonomy classification results. See output format details [here (Kraken2)](https://github.com/DerrickWood/kraken2/wiki/Manual#output-formats) and [here (Bracken)](https://ccb.jhu.edu/software/bracken/index.shtml?t=manual#format).
-  * Kraken2 classification report (`sample_id_kraken2_report.txt`)
-  * Kraken2 per-read assignments (`sample_id_kraken2.tsv.gz`)
-  * Bracken species abundance (`sample_id_bracken_species.tsv`)
-  * Bracken Kraken-style report (`sample_id_bracken_report.txt`)
+* **6_sylph:** Sylph taxonomy classification results, see [Sylph output format](https://sylph-docs.github.io/Output-format/) and [sylph-tax output format](https://sylph-docs.github.io/sylph-tax-output-format/).
+  * Sylph list of genomes detected (`sample_id_sylph_profile.tsv`)
+  * Sylph-tax combined taxonomic abundances (`sample_id_merged_taxonomic_abundance.tsv`)
+  * Sylph-tax combined sequence abundances (`sample_id_merged_sequence_abundance.tsv`)
 * **7_kaptive_v3:** Kaptive output files. See [Kaptive output docs](https://kaptive.readthedocs.io/en/latest/Outputs.html).
   * LPS type results (`sample_id_kaptive_results.tsv`)
   * LPS sequence in FASTA format (`sample_id_kaptive_results.fna`)
@@ -352,9 +359,8 @@ The `10_report` folder contains combined results across all samples:
 * Shovill assembly statistics: coverage, contig count, assembly size (`3_Illumina_shovill_stats.tsv`)
 * Combined QUAST report (`4_Illumina_quast_report.tsv`)
 * Combined CheckM results (`5_Illumina_checkm_lineage_wf_results.tsv`)
-* Kraken/Bracken taxonomy results:
-  * *P. multocida* abundance (`6_Illumina_bracken_pasteurella_multocida_species_abundance.tsv`)
-  * Most abundant species (`6_Illumina_bracken_most_abundant_species.tsv`)
+* Sylph taxonomy results:
+  * Abundance of *P. multocida* reads, and information on the most abundant species (if not *P. multocida*): `6_Illumina_sylph_summary.tsv`
 * Kaptive results (`7_Illumina_kaptive_results.tsv`)
 * Snippy variant results:
   * All variants (`8_Illumina_snippy_snps.tsv`)
@@ -433,8 +439,8 @@ Please cite the following tools when using this pipeline:
 - [Shovill](https://github.com/tseemann/shovill) / [SPAdes](https://github.com/ablab/spades)
 - [QUAST](https://quast.sourceforge.net/quast.html)
 - [CheckM](https://github.com/Ecogenomics/CheckM)
-- [Kraken2](https://github.com/DerrickWood/kraken2)
-- [Bracken](https://github.com/jenniferlu717/Bracken)
+- [Sylph](https://github.com/bluenote-1577/sylph)
+- [sylph-tax](https://github.com/bluenote-1577/sylph-tax)
 - [Kaptive](https://kaptive.readthedocs.io/en/latest/)
 - [Snippy](https://github.com/tseemann/snippy) / [SnpEff](https://pcingola.github.io/SnpEff/)
 - [mlst](https://github.com/tseemann/mlst)
