@@ -64,7 +64,7 @@ Paired-end reads are assembled using [Shovill](https://github.com/tseemann/shovi
 
 ### 6. Sylph taxonomy classification
 
-Trimmed reads are classified with the containment-based taxonomy profiler [Sylph](https://sylph-docs.github.io), and taxonomic labels are assigned with [sylph-tax](https://github.com/bluenote-1577/sylph-tax). Both the GTDB R226 and RefSeq Fungi databases are used, downloaded from the [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/).
+Trimmed reads are classified with the containment-based taxonomy profiler [Sylph](https://sylph-docs.github.io), and taxonomic labels are assigned with [sylph-tax](https://github.com/bluenote-1577/sylph-tax). Both the GTDB R232 and RefSeq Fungi databases are used, downloaded from the [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/).
 
 ### 7. LPS typing using Kaptive
 
@@ -169,7 +169,7 @@ The LPS reference data and Kaptive database are **included in the repository** u
 |----------|-------------|--------------|---------------|--------|-------------|---------------|
 | LPS references | Steps 7, 8, 10, 11 | `databases/LPS/` | Included in repo | This repository | < 1 MB | Included — no action needed |
 | Kaptive3 LPS DB | Step 7 | `databases/kaptive3_LPS_db_v1/9lps.gbk` | Included in repo | This repository | < 200 KB | Included — no action needed |
-| Sylph GTDB + Fungi | Step 6 | `databases/sylph/` | GTDB R226, Fungi RefSeq 2024-07-25 | [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/) | ~ 12 GB | Add `--skip_download_sylph_db false`, or download manually (see below) |
+| Sylph GTDB + Fungi | Step 6 | `databases/sylph/` | GTDB R232, Fungi RefSeq 2025-10-11 | [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/) | ~ 12 GB | Add `--skip_download_sylph_db false`, or download manually (see below) |
 | CheckM | Step 5 | `databases/checkm_data_2015_01_16` | 2015_01_16 | [CheckM installation docs](https://github.com/Ecogenomics/CheckM/wiki/Installation) | ~ 1.4 GB | Add `--download_checkm_db`, or download manually (see below) |
 | Bakta | Step 12 | `databases/bakta_db/db` | v6.0 (2025-02-24) | [Zenodo 10.5281/zenodo.14916843](https://zenodo.org/records/14916843) | ~ 65 GB | Add `--download_bakta_db`, or download manually (see below) |
 | AMRFinderPlus | Step 13 | `databases/amrfinderplus/amrfinderplus_db/latest` | 2025-03-25.1 | [NCBI AMRFinderPlus wiki](https://github.com/ncbi/amr/wiki/AMRFinderPlus-database) | ~ 300 MB | Add `--download_amrfinder_db`, or download manually (see below) |
@@ -181,7 +181,7 @@ The LPS reference data and Kaptive database are **included in the repository** u
 Add the relevant flag(s) on the first run. The database will be downloaded into `databases/` and reused automatically on subsequent runs (omit the flag after the first download).
 
 ```bash
-# Download Sylph databases (GTDB R226 + Fungi RefSeq, ~12 GB):
+# Download Sylph databases (GTDB R232 + Fungi RefSeq, ~12 GB):
 nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
   --outdir results --skip_download_sylph_db false
 
@@ -203,13 +203,13 @@ nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
 If you prefer to download databases yourself (e.g. for speed or reproducibility), download them to any location and point the pipeline to them:
 
 ```bash
-# Sylph databases (GTDB R226 + Fungi RefSeq) and matching sylph-tax metadata:
+# Sylph databases (GTDB R232 + Fungi RefSeq) and matching sylph-tax metadata:
 mkdir -p /path/to/databases/sylph
 cd /path/to/databases/sylph
-wget http://faust.compbio.cs.cmu.edu/sylph-stuff/gtdb-r226-c200-dbv1.syldb
-wget http://faust.compbio.cs.cmu.edu/sylph-stuff/fungi-refseq-2024-07-25-c200-v0.3.syldb
-wget https://zenodo.org/records/15314244/files/gtdb_r226_metadata.tsv.gz
-wget https://zenodo.org/records/14320496/files/fungi_refseq_2024-07-25_metadata.tsv.gz
+wget http://faust.compbio.cs.cmu.edu/sylph-stuff/gtdb-r232-c200-dbv1.syldb
+wget http://faust.compbio.cs.cmu.edu/sylph-stuff/fungi-refseq-2025-10-11-c200-dbv1.syldb
+wget https://zenodo.org/records/19646381/files/gtdb_r232_metadata.tsv.gz
+wget https://zenodo.org/records/17330476/files/fungi_refseq_2025-10-11_metadata.tsv.gz
 # Then run with: --sylph_db "/path/to/databases/sylph/*.syldb" --sylph_metadata "/path/to/databases/sylph/*.tsv.gz"
 
 # CheckM (tested version checkm_data_2015_01_16):
