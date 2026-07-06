@@ -72,3 +72,7 @@ L6	L6-14	18BRD-064	L6_P1573_H12_mod	4114	4bp deletion	TTTGC	T	nctB	NA
 L6	L6-6	P2237 (H15)	L6_P1573_H12_mod	4175	1bp insertion	C	CT	nctB	NA		
 L6	L6-8	P903 (H11)	L6_P1573_H12_mod	6212	1bp deletion	TA	T	gctD	NA		
 L6	L6-7	P2237 (H15)	L6_P1573_H12_mod	6291	snp G484A	G	A	gctD	NA		This mutation will change it to gatB as per Harper 2014 paper
+L6	L6-9	P2100 (H10)	L6_P1573_H12_mod	6538	1bp deletion	TA	T	hptE	NA		
+L6	L6-10	SRS1876749	L6_P1573_H12_mod	7508	1bp insertion	T	TA	hptE	NA		
+L7	L7-1	P1581 (H8)	L7_P1581_H8	NA	NA	NA	NA	NA	NA		
+L7	L7-2	P1591 (H13)	L7_P1581_H8	3326	1bp deletion	AT	A	ppgC	NA		
