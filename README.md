@@ -173,8 +173,8 @@ The LPS reference data and Kaptive database are **included in the repository** u
 | Kaptive3 LPS DB | Step 7 | `databases/kaptive3_LPS_db_v1/9lps.gbk` | Included in repo | This repository | < 200 KB | Included — no action needed |
 | Sylph GTDB + Fungi | Step 6 | `databases/sylph/` | GTDB R232, Fungi RefSeq 2025-10-11 | [Sylph pre-built databases](https://sylph-docs.github.io/pre%E2%80%90built-databases/) | ~ 25 GB | Add `--skip_download_sylph_db false`, or download manually (see below) |
 | CheckM | Step 5 | `databases/checkm_data_2015_01_16` | 2015_01_16 | [CheckM installation docs](https://github.com/Ecogenomics/CheckM/wiki/Installation) | ~ 1.4 GB | Add `--download_checkm_db`, or download manually (see below) |
-| Bakta | Step 12 | `databases/bakta_db/db` | v6.0 (2025-02-24) | [Zenodo 10.5281/zenodo.14916843](https://zenodo.org/records/14916843) | ~ 65 GB | Add `--download_bakta_db`, or download manually (see below) |
-| AMRFinderPlus | Step 13 | `databases/amrfinderplus/amrfinderplus_db/latest` | 2025-03-25.1 | [NCBI AMRFinderPlus wiki](https://github.com/ncbi/amr/wiki/AMRFinderPlus-database) | ~ 300 MB | Add `--download_amrfinder_db`, or download manually (see below) |
+| Bakta | Step 12 | `databases/bakta/db` | v6.0 (2025-02-24) | [Zenodo 10.5281/zenodo.14916843](https://zenodo.org/records/14916843) | ~ 65 GB | Add `--download_bakta_db`, or download manually (see below) |
+| AMRFinderPlus | Step 13 | `databases/amrfinderplus/2025-03-25.1` | 2025-03-25.1 | [NCBI AMRFinderPlus wiki](https://github.com/ncbi/amr/wiki/AMRFinderPlus-database) | ~ 300 MB | Add `--download_amrfinder_db`, or download manually (see below) |
 
 > **Reproducibility note:** The `--download_*` flags (and `--skip_download_sylph_db false`) retrieve the latest available database version, which may differ from the tested versions listed above and could affect results. For reproducible analyses, use pinned database versions and specify their paths explicitly with `--sylph_db`, `--sylph_metadata`, `--checkm_db`, `--bakta_db`, and `--amrfinder_db`.
 
@@ -224,8 +224,8 @@ tar -xvzf checkm_data_2015_01_16.tar.gz -C /path/to/databases/checkm_data_2015_0
 
 # Bakta (tested version v6.0 from Zenodo):
 wget https://zenodo.org/records/14916843/files/db.tar.gz
-tar -xvzf db.tar.gz -C /path/to/databases/bakta_db/
-# Then run with: --bakta_db /path/to/databases/bakta_db/db
+tar -xvzf db.tar.gz -C /path/to/databases/bakta/
+# Then run with: --bakta_db /path/to/databases/bakta/db
 
 # AMRFinderPlus (tested version 2025-03-25.1):
 # Use amrfinder_update within the container, or specify an existing database directory
@@ -306,14 +306,14 @@ The subtype report uses `LPS_subtype_database_v2.txt` and, when present, `phenot
 
 * `--skip_bakta`: skip genome annotation (default=false)
 * `--bakta_threads`: number of threads for Bakta (default=8)
-* `--bakta_db`: path to the Bakta database folder (default=`databases/bakta_db/db`)
+* `--bakta_db`: path to the Bakta database folder (default=`databases/bakta/db`)
 * `--download_bakta_db`: download the latest Bakta database automatically (default=false)
-* `--bakta_args`: additional Bakta parameters (default includes `--proteins databases/LPS/NC_002663_LPS.gb` for *Pasteurella multocida*)
+* `--bakta_args`: additional Bakta parameters (default="")
 
 ### 13. AMR gene identification using AMRFinderPlus
 
 * `--skip_amrfinder`: skip AMR gene identification (default=false)
-* `--amrfinder_db`: path to the AMRFinderPlus database folder (default=`databases/amrfinderplus/amrfinderplus_db/latest`)
+* `--amrfinder_db`: path to the AMRFinderPlus database folder (default=`databases/amrfinderplus/2025-03-25.1`)
 * `--download_amrfinder_db`: download the latest AMRFinderPlus database automatically (default=false)
 * `--amrfinder_args`: additional AMRFinderPlus parameters (default="")
 
