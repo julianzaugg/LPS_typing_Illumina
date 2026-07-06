@@ -200,6 +200,8 @@ nextflow run main.nf -profile apptainer --samplesheet samplesheet/samples.csv \
   --outdir results --download_amrfinder_db
 ```
 
+> **Zenodo connection errors:** Downloads from Zenodo (Sylph-tax metadata, Bakta) can occasionally fail on HPC clusters with `Connection reset by peer`. The pipeline will automatically retry up to 5 times with 30-second gaps. If downloads still fail, download the files manually (see below) and use `--sylph_metadata` / `--bakta_db` to point the pipeline to the local copies.
+
 ### Manual database download
 
 If you prefer to download databases yourself (e.g. for speed or reproducibility), download them to any location and point the pipeline to them:

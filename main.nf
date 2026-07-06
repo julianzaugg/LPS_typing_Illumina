@@ -256,7 +256,7 @@ process sylph_download_db {
         script:
         """
         echo "${db}"
-        wget -c "${db}"
+        wget -c --tries=5 --waitretry=30 "${db}"
         """
 }
 
@@ -292,7 +292,7 @@ process sylph_tax_download_metadata {
         !params.skip_download_sylph_db
         script:
         """
-        wget -c "${metadata_file}" -O \$PWD/\$(basename $metadata_file)
+        wget -c --tries=5 --waitretry=30 "${metadata_file}" -O \$PWD/\$(basename $metadata_file)
         """
 }
 
