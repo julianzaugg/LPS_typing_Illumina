@@ -107,10 +107,12 @@ process summary_fastqc {
 }
 
 process shovill {
-        cpus "${params.shovill_threads}"
+        cpus { task.attempt <= 2 ? "${params.shovill_threads}" : 1 }
         tag "${sample}"
         label "cpu"
         label "high_memory"
+        errorStrategy 'retry'
+        maxRetries 2
 	publishDir "$params.outdir/$sample/3_assembly",  mode: 'copy', pattern: "*.log", saveAs: { filename -> "${sample}_$filename" }
         publishDir "$params.outdir/$sample/3_assembly",  mode: 'copy', pattern: '*fa'
         input:
@@ -122,7 +124,7 @@ process shovill {
 		path("*fa")
         script:
         """
-        shovill --outdir \$PWD --R1 ${reads1} --R2 ${reads2} --gsize ${params.genome_size} --force --cpus ${params.shovill_threads} ${params.shovill_args} --ram ${task.memory}
+        shovill --outdir \$PWD --R1 ${reads1} --R2 ${reads2} --gsize ${params.genome_size} --force --cpus ${task.cpus} ${params.shovill_args} --ram ${task.memory}
 	mv contigs.fa ${sample}_contigs.fa
 	mv spades.gfa ${sample}_contigs.gfa
         cp .command.log shovill.log
