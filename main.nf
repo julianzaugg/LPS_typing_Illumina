@@ -19,12 +19,11 @@ def helpMessage() {
 	Pasteurella multocida LPS analysis pipeline v${workflow.manifest.version}
 	=========================================
 	Usage:
-	nextflow main.nf --fqdir /path/to/fastq/directory/ --outdir /path/to/outdir/
+	nextflow main.nf --samplesheet /path/to/samplesheet.csv --outdir /path/to/outdir/
 
 	Required arguments:
-		--fqdir					Path to the directory containing the Illumina fastq files
 		--outdir				Path to the output directory to be created
-		--samplesheet				Path to the samplesheet file
+		--samplesheet				Path to the samplesheet file (fastq paths are defined in its short_fastq_1/short_fastq_2 columns)
     
 	Optional parameters:
 		--threads				Number of threads (default=4)
