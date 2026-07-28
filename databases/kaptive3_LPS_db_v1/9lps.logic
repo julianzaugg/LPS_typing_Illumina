@@ -1,10 +1,10 @@
 loci	genes	phenotype
 LPS1-H1	pcgA,truncated	L1 outer core lacking the PCho residues and the 1,6-linked galactose residue
-LPS3-H3	natC,truncated	L3 outer core lacking the second N-acteylgalactosamine GalNAcII
-LPS3-H3	gatG,truncated	L3 outer core lacking the second galactose GalII
-LPS3-H3	gatG,truncated;natC,truncated	L3 outer core lacking GalII and GalNAcII
-LPS3-H3	hptE,truncated	L3 outer core lacking the heptose Hep IV
-LPS3-H3	natB,truncated	L3 outer core lacking the first N-acteylgalactosamine GalNAcI
+LPS3-Pm70	natC,truncated	L3 outer core lacking the second N-acteylgalactosamine GalNAcII
+LPS3-Pm70	gatG,truncated	L3 outer core lacking the second galactose GalII
+LPS3-Pm70	gatG,truncated;natC,truncated	L3 outer core lacking GalII and GalNAcII
+LPS3-Pm70	hptE,truncated	L3 outer core lacking the heptose Hep IV
+LPS3-Pm70	natB,truncated	L3 outer core lacking the first N-acteylgalactosamine GalNAcI
 LPS4-H6	latB,truncated;natD,truncated	L4 outer core truncated 
 LPS6-H12	hptE,truncated	L6 outer core null
 LPS6-H12	gctD,truncated	L6 outer core truncated
