@@ -138,7 +138,7 @@ process summary_shovill {
 		path("3_Illumina_shovill_stats.tsv"), emit: shovill_summary
 	script:
 	"""
-	echo -e "sample\tasssembly_coverage\tnb_contigs\tassembly_size" > 3_Illumina_shovill_stats.tsv
+	echo -e "sample\tassembly_coverage\tnb_contigs\tassembly_size" > 3_Illumina_shovill_stats.tsv
 	for file in `ls *contigs.fa`; do
 		fileName=\$(basename \$file)
 		sample=\${fileName%%_contigs.fa}
