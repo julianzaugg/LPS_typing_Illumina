@@ -886,7 +886,6 @@ workflow {
 	.splitCsv(header:true, sep:',')
 	.map { row -> tuple(row.sample_id, file(row.short_fastq_1, checkIfExists: true), file(row.short_fastq_2, checkIfExists: true)) }
 	.set { ch_samplesheet_illumina }
-	ch_samplesheet_illumina.view()
 	fastp(ch_samplesheet_illumina)
 	// When skip_fastp is true, pass raw reads through as if they were trimmed
 	ch_trimmed = params.skip_fastp
