@@ -730,6 +730,41 @@ process html_report {
 	"""
 }
 
+process prepare_mlst_db {
+	container 'docker://quay.io/biocontainers/mlst:2.33.1--hdfd78af_0'
+	publishDir "${projectDir}/databases/", mode: 'copy'
+	input:
+		path(mlst_input_dir)
+	output:
+		path("mlst_db_prepared"), emit: mlst_db_prepared
+	script:
+	"""
+	mkdir -p mlst_db_prepared/blast
+	# Copy scheme files, renaming PubMLST .fas allele downloads to .tfa
+	for scheme_dir in ${mlst_input_dir}/*/; do
+	    scheme=\$(basename "\$scheme_dir")
+	    mkdir -p mlst_db_prepared/\$scheme
+	    for src in "\$scheme_dir"*; do
+	        fname=\$(basename "\$src")
+	        if [[ "\$fname" == *.fas ]]; then
+	            cp "\$src" "mlst_db_prepared/\$scheme/\${fname%.fas}.tfa"
+	        else
+	            cp "\$src" "mlst_db_prepared/\$scheme/\$fname"
+	        fi
+	    done
+	done
+	# Build BLAST database with scheme-prefixed sequence headers (as mlst expects)
+	for scheme_dir in mlst_db_prepared/*/; do
+	    scheme=\$(basename "\$scheme_dir")
+	    for tfa in "\$scheme_dir"*.tfa; do
+	        [ -f "\$tfa" ] || continue
+	        sed "s/^>/>\$scheme./" "\$tfa"
+	    done
+	done > mlst_db_prepared/blast/mlst.fa
+	makeblastdb -hash_index -in mlst_db_prepared/blast/mlst.fa -dbtype nucl -title "PubMLST" -parse_seqids
+	"""
+}
+
 process mlst {
         cpus "${params.threads}"
         tag "${sample}"
@@ -738,14 +773,16 @@ process mlst {
 	publishDir "$params.outdir/$sample/9_mlst",  mode: 'copy', pattern: '*csv'
         input:
                 tuple val(sample), path(assembly)
+		path mlst_db
         output:
                 path("mlst.log")
 		path("*_mlst.csv"), emit: mlst_results
         when:
         !params.skip_mlst
         script:
+	def custom_db_args = mlst_db ? "--datadir ${mlst_db} --blastdb ${mlst_db}/blast/mlst.fa" : ""
         """
-	mlst --scheme ${params.mlst_scheme} ${assembly} --quiet --csv --threads ${params.threads} > mlst.csv
+	mlst --scheme ${params.mlst_scheme} ${assembly} --quiet --csv --threads ${params.threads} ${custom_db_args} > mlst.csv
         sed  s/_contigs.fa// mlst.csv > ${sample}_mlst.csv
 	cp .command.log mlst.log
         """
@@ -913,8 +950,14 @@ workflow {
 	snippy(ch_trimmed.join(kaptive3.out.kaptive_results))
 	snippy_tab_ch=snippy.out.snippy_impact_tab.collect()
 	kaptive_summary_ch=summary_kaptive.out.kaptive_summary
+	if (params.mlst_datadir) {
+		prepare_mlst_db(Channel.value(file(params.mlst_datadir)))
+		ch_mlst_db = prepare_mlst_db.out.mlst_db_prepared
+	} else {
+		ch_mlst_db = Channel.value([])
+	}
 	if (!params.skip_mlst) {
-		mlst(shovill.out.assembly_out)
+		mlst(shovill.out.assembly_out, ch_mlst_db)
 		summary_mlst(mlst.out.mlst_results.collect())
 		mlst_report_ch = mlst.out.mlst_results.collect()
 	} else {
