@@ -44,6 +44,8 @@ nextflow run main.nf -profile apptainer,slurm \
 
 ## Overall pipeline
 
+![Pipeline overview](pipeline_flowchart.svg)
+
 ### 1. Read trimming
 
 Raw Illumina reads are trimmed using [fastp](https://github.com/OpenGene/fastp) v0.24.0.

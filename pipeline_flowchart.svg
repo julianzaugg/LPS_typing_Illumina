@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1470 820" font-family="Arial, Helvetica, sans-serif">
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1470" height="820" fill="#ffffff"/>
+
+  <!-- ===================== per-sample dashed group (background layer) ===================== -->
+  <rect x="15" y="15" width="1440" height="545" rx="14" fill="#fbfcfd" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="35" y="38" font-size="13.5" font-weight="bold" fill="#64748b" letter-spacing="0.5">PER-SAMPLE STEPS &#8211; repeated independently for every sample</text>
+
+  <!-- ===================== connectors ===================== -->
+  <g fill="none" stroke="#475569" stroke-width="1.8">
+    <!-- input -> fastp -->
+    <path d="M725,96 L725,140" marker-end="url(#arrow)"/>
+
+    <!-- fastp -> row1 (FastQC / Shovill / Sylph) -->
+    <path d="M725,188 L725,225" marker-end="url(#arrow)"/>
+    <path d="M725,188 L725,205 L315,205 L315,225" marker-end="url(#arrow)"/>
+    <path d="M725,188 L725,205 L1135,205 L1135,225" marker-end="url(#arrow)"/>
+
+    <!-- shovill -> trunk -> row3 (7 boxes) -->
+    <path d="M725,271 L725,291"/>
+    <path d="M110,291 L1340,291"/>
+    <path d="M110,291 L110,306" marker-end="url(#arrow)"/>
+    <path d="M315,291 L315,306" marker-end="url(#arrow)"/>
+    <path d="M520,291 L520,306" marker-end="url(#arrow)"/>
+    <path d="M725,291 L725,306" marker-end="url(#arrow)"/>
+    <path d="M930,291 L930,306" marker-end="url(#arrow)"/>
+    <path d="M1135,291 L1135,306" marker-end="url(#arrow)"/>
+    <path d="M1340,291 L1340,306" marker-end="url(#arrow)"/>
+
+    <!-- kaptive -> variant calling -->
+    <path d="M520,356 L520,396" marker-end="url(#arrow)"/>
+
+    <!-- variant calling / mlst / petg -> subtype report -->
+    <path d="M520,446 L520,461 L725,461 L725,481" marker-end="url(#arrow)"/>
+    <path d="M725,356 L725,481" marker-end="url(#arrow)"/>
+    <path d="M930,356 L930,466 L725,466 L725,481" marker-end="url(#arrow)"/>
+
+    <!-- group -> combined results -->
+    <path d="M725,560 L725,600" marker-end="url(#arrow)"/>
+
+    <!-- combined results -> final report -->
+    <path d="M725,650 L725,690" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Input -->
+  <rect x="585" y="50" width="280" height="46" rx="9" fill="#eef1f4" stroke="#64748b" stroke-width="1.6"/>
+  <text x="725" y="71" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e293b">Raw Illumina reads</text>
+  <text x="725" y="87" text-anchor="middle" font-size="11.5" fill="#334155">paired-end FASTQ (R1/R2, per sample)</text>
+
+  <!-- fastp trimming -->
+  <rect x="615" y="140" width="220" height="48" rx="9" fill="#e6f0fa" stroke="#3d6d99" stroke-width="1.6"/>
+  <text x="725" y="160" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e293b">fastp</text>
+  <text x="725" y="176" text-anchor="middle" font-size="11.5" fill="#334155">read QC - adapter &amp; quality trimming</text>
+
+  <!-- Row 1: FastQC/MultiQC / Shovill / Sylph -->
+  <rect x="215" y="225" width="200" height="46" rx="9" fill="#e6f0fa" stroke="#3d6d99" stroke-width="1.6"/>
+  <text x="315" y="245" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">FastQC / MultiQC</text>
+  <text x="315" y="261" text-anchor="middle" font-size="11" fill="#334155">read quality metrics</text>
+
+  <rect x="615" y="225" width="220" height="46" rx="9" fill="#e8f5ea" stroke="#4b8a5a" stroke-width="1.6"/>
+  <text x="725" y="245" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e293b">Shovill</text>
+  <text x="725" y="261" text-anchor="middle" font-size="11.5" fill="#334155">de novo genome assembly (SPAdes)</text>
+
+  <rect x="1035" y="225" width="200" height="46" rx="9" fill="#e6f0fa" stroke="#3d6d99" stroke-width="1.6"/>
+  <text x="1135" y="244" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">Sylph / sylph-tax</text>
+  <text x="1135" y="260" text-anchor="middle" font-size="11.5" fill="#334155">taxonomy classification</text>
+
+  <!-- Row 3: seven parallel analyses -->
+  <rect x="30" y="306" width="160" height="50" rx="9" fill="#e6f0fa" stroke="#3d6d99" stroke-width="1.6"/>
+  <text x="110" y="326" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">QUAST</text>
+  <text x="110" y="342" text-anchor="middle" font-size="11" fill="#334155">assembly QC metrics</text>
+
+  <rect x="220" y="306" width="190" height="50" rx="9" fill="#e6f0fa" stroke="#3d6d99" stroke-width="1.6"/>
+  <text x="315" y="326" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">CheckM</text>
+  <text x="315" y="342" text-anchor="middle" font-size="11" fill="#334155">completeness &amp; contamination</text>
+
+  <rect x="440" y="306" width="160" height="50" rx="9" fill="#fdf1de" stroke="#c17f17" stroke-width="1.6"/>
+  <text x="520" y="326" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">Kaptive</text>
+  <text x="520" y="342" text-anchor="middle" font-size="11" fill="#334155">LPS typing + region extraction</text>
+
+  <rect x="645" y="306" width="160" height="50" rx="9" fill="#fdf1de" stroke="#c17f17" stroke-width="1.6"/>
+  <text x="725" y="326" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">mlst</text>
+  <text x="725" y="342" text-anchor="middle" font-size="11" fill="#334155">MLST typing</text>
+
+  <rect x="850" y="306" width="160" height="50" rx="9" fill="#fdf1de" stroke="#c17f17" stroke-width="1.6"/>
+  <text x="930" y="326" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">BLAST</text>
+  <text x="930" y="342" text-anchor="middle" font-size="11" fill="#334155">petG detection</text>
+
+  <rect x="1050" y="306" width="170" height="50" rx="9" fill="#fdf1de" stroke="#c17f17" stroke-width="1.6"/>
+  <text x="1135" y="326" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">Bakta</text>
+  <text x="1135" y="342" text-anchor="middle" font-size="11" fill="#334155">genome annotation</text>
+
+  <rect x="1245" y="306" width="190" height="50" rx="9" fill="#fdf1de" stroke="#c17f17" stroke-width="1.6"/>
+  <text x="1340" y="326" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e293b">AMRFinderPlus</text>
+  <text x="1340" y="342" text-anchor="middle" font-size="11" fill="#334155">AMR gene identification</text>
+
+  <!-- Variant calling -->
+  <rect x="390" y="396" width="260" height="50" rx="9" fill="#f2eaf9" stroke="#7a4c9e" stroke-width="1.6"/>
+  <text x="520" y="415" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e293b">BWA-mem (Snippy) &#8594; SnpEff</text>
+  <text x="520" y="431" text-anchor="middle" font-size="10.8" fill="#334155">variant calling &amp; annotation vs LPS reference</text>
+
+  <!-- Subtype report -->
+  <rect x="595" y="481" width="260" height="44" rx="9" fill="#e2f4f2" stroke="#23847e" stroke-width="1.6"/>
+  <text x="725" y="500" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1e293b">Subtype report</text>
+  <text x="725" y="516" text-anchor="middle" font-size="11" fill="#334155">per-sample variants &amp; predicted phenotype</text>
+
+  <!-- Combined results -->
+  <rect x="485" y="600" width="480" height="50" rx="9" fill="#e2f4f2" stroke="#23847e" stroke-width="1.6"/>
+  <text x="725" y="620" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1e293b">Combined results across all samples (10_report)</text>
+  <text x="725" y="637" text-anchor="middle" font-size="11" fill="#334155">QC &#183; taxonomy &#183; assembly &#183; typing &#183; variants &#183; MLST &#183; petG &#183; annotation &#183; AMR genes</text>
+
+  <!-- Final HTML report -->
+  <rect x="575" y="690" width="300" height="46" rx="9" fill="#e2f4f2" stroke="#23847e" stroke-width="1.6"/>
+  <text x="725" y="711" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e293b">HTML summary report</text>
+  <text x="725" y="727" text-anchor="middle" font-size="11" fill="#334155">LPS_typing_report.html</text>
+
+  <!-- ===================== legend ===================== -->
+  <g font-size="11.5" fill="#334155">
+    <rect x="40" y="770" width="15" height="15" rx="3" fill="#eef1f4" stroke="#64748b" stroke-width="1.2"/>
+    <text x="61" y="781.5">Input</text>
+
+    <rect x="150" y="770" width="15" height="15" rx="3" fill="#e6f0fa" stroke="#3d6d99" stroke-width="1.2"/>
+    <text x="171" y="781.5">QC / taxonomy</text>
+
+    <rect x="335" y="770" width="15" height="15" rx="3" fill="#e8f5ea" stroke="#4b8a5a" stroke-width="1.2"/>
+    <text x="356" y="781.5">Assembly</text>
+
+    <rect x="460" y="770" width="15" height="15" rx="3" fill="#fdf1de" stroke="#c17f17" stroke-width="1.2"/>
+    <text x="481" y="781.5">Typing / annotation</text>
+
+    <rect x="660" y="770" width="15" height="15" rx="3" fill="#f2eaf9" stroke="#7a4c9e" stroke-width="1.2"/>
+    <text x="681" y="781.5">Variant calling</text>
+
+    <rect x="830" y="770" width="15" height="15" rx="3" fill="#e2f4f2" stroke="#23847e" stroke-width="1.2"/>
+    <text x="851" y="781.5">Reporting</text>
+  </g>
+
+</svg>
