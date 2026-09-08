@@ -26,7 +26,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.patches import Rectangle  # noqa: E402
+from matplotlib.colors import to_rgb  # noqa: E402
+from matplotlib.patches import Polygon  # noqa: E402
 import pandas as pd  # noqa: E402
 from jinja2 import Template  # noqa: E402
 
@@ -137,12 +138,15 @@ def fig_to_inline_svg(fig, titles, prefix):
 
 def short_vartype(vartype):
     """Shorten a VARTYPE label for plotting, e.g. 'snp S92*' -> 'S92*',
-    '19bp deletion' -> '19bp del'."""
+    '19bp deletion' -> '19bp del'. The database is inconsistent about the space
+    after 'snp' (e.g. 'snpY226*'), so both forms are stripped."""
     v = clean(vartype)
     if not v:
         return ""
-    if v.lower().startswith("snp "):
-        return v[4:].strip()
+    if v.lower().startswith("snp"):
+        stripped = v[3:].strip()
+        if stripped:
+            return stripped
     v = re.sub(r"\binsertion\b", "ins", v, flags=re.I)
     v = re.sub(r"\bdeletion\b", "del", v, flags=re.I)
     return v
@@ -273,14 +277,33 @@ def load_phenotype_images(lps_db_dir):
 # Figures
 # --------------------------------------------------------------------------- #
 
+def _gene_arrow_xy(start, end, y, half_h, strand, head):
+    """Five-point directional gene arrow, pointing left on the minus strand."""
+    hl = min(head, 0.5 * (end - start))
+    if strand == "-":
+        return [(end, y - half_h), (start + hl, y - half_h), (start, y),
+                (start + hl, y + half_h), (end, y + half_h)]
+    return [(start, y - half_h), (end - hl, y - half_h), (end, y),
+            (end - hl, y + half_h), (start, y + half_h)]
+
+
+def _contrast_text(hex_color):
+    """Near-black or white, whichever reads better on `hex_color`."""
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+           for c in to_rgb(hex_color)]
+    lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    return "#1A1A1A" if lum > 0.45 else "white"
+
+
 def make_lollipop(lps_type, chrom, genes, locus_len, variants, gcolors):
     """Build a lollipop figure for one LPS type and return inline SVG markup.
 
     ``variants`` is a list of dicts: {'pos','label','gene','count'}; height = number
     of genomes carrying the mutation. Mutation labels are placed in leader-line
-    stacked tiers to avoid overlap; gene-track boxes are labelled only where the
-    text fits (the rest are covered by the gene-colour legend). Markers and gene
-    boxes carry <title> tooltips. Width scales with locus length and variant count.
+    stacked tiers to avoid overlap; the gene track is drawn as directional arrows
+    labelled only where the text fits (the rest are covered by the gene-colour
+    legend). Markers and gene arrows carry <title> tooltips. Width scales with
+    locus length and variant count.
     """
     titles = {}
     max_count = max((v["count"] for v in variants), default=1)
@@ -288,22 +311,35 @@ def make_lollipop(lps_type, chrom, genes, locus_len, variants, gcolors):
 
     fig_w = min(16.0, max(9.0, xmax / 900.0 + len(variants) * 0.18))
     fig, ax = plt.subplots(figsize=(fig_w, 4.0))
-    fig_px = fig_w * fig.dpi
+    # panel width, not figure width: the y axis label and ticks take ~1.1 in,
+    # and both the label-overlap test and the gene-name fit test measure in
+    # panel pixels
+    fig_px = max(2.0, fig_w - 1.1) * fig.dpi
 
-    band = max_count * 0.16  # gene-track height, in count units
+    band = max_count * 0.18       # gene-arrow height, in count units
+    half_h = band / 2.0
+    track_y = -half_h - max_count * 0.05   # arrow centre line, below the baseline
 
-    # Gene track (colored boxes below baseline y=0); label only if it fits.
+    # Gene track: directional arrows on a thin backbone. Strand comes straight
+    # from the complement() wrapper in the .gb, so the arrows cannot disagree
+    # with the reference. A name is drawn inside its arrow only where the
+    # straight body has room; the rest are covered by the gene-colour legend.
+    ax.plot([1, locus_len], [track_y, track_y], color="#888780",
+            linewidth=0.8, zorder=1)
     for g in genes:
         gid = f"gene_{g['name']}"
-        rect = Rectangle((g["start"], -band), g["end"] - g["start"], band,
-                         facecolor=gcolors[g["name"]], edgecolor="white",
-                         linewidth=0.6, zorder=2, gid=gid)
-        ax.add_patch(rect)
+        head = min(0.35 * (g["end"] - g["start"]), 0.02 * xmax)
+        ax.add_patch(Polygon(
+            _gene_arrow_xy(g["start"], g["end"], track_y, half_h, g["strand"], head),
+            closed=True, facecolor=gcolors[g["name"]], edgecolor="#333333",
+            linewidth=0.4, zorder=2, gid=gid))
         titles[gid] = f"{g['name']} · {g['start']}–{g['end']} ({g['strand']})"
-        box_px = (g["end"] - g["start"]) / xmax * fig_px
-        if box_px >= len(g["name"]) * 8.5:
-            ax.text((g["start"] + g["end"]) / 2.0, -band / 2.0, g["name"],
-                    ha="center", va="center", fontsize=8, color="white", zorder=3)
+        body_px = (g["end"] - g["start"] - head) / xmax * fig_px
+        if body_px >= len(g["name"]) * 8.5:
+            cx = ((g["start"] + head + g["end"]) / 2.0 if g["strand"] == "-"
+                  else (g["start"] + g["end"] - head) / 2.0)
+            ax.text(cx, track_y, g["name"], ha="center", va="center", fontsize=8,
+                    color=_contrast_text(gcolors[g["name"]]), zorder=3)
 
     ax.plot([0, xmax], [0, 0], color="#888780", linewidth=0.8, zorder=1)
 
@@ -342,7 +378,8 @@ def make_lollipop(lps_type, chrom, genes, locus_len, variants, gcolors):
     n_tiers = len(tiers_last) if tiers_last else 1
 
     ax.set_xlim(-xmax * 0.02, xmax * 1.02)
-    ax.set_ylim(-band * 1.2, label_base + n_tiers * dy + max_count * 0.18)
+    ax.set_ylim(track_y - half_h - band * 0.35,
+                label_base + n_tiers * dy + max_count * 0.18)
     ax.set_yticks(range(0, max_count + 1, max(1, max_count // 5)))
     ax.set_ylabel("genomes with mutation", fontsize=9)
     ax.set_xlabel(f"{chrom}  ·  position (bp)", fontsize=9)
