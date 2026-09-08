@@ -10,6 +10,7 @@ nextflow.enable.dsl=2
  #https://github.com/julianzaugg/LPS_typing_Illumina
  #### Authors
  Valentine Murigneux <v.murigneux@uq.edu.au>
+ Julian Zaugg <j.zaugg@uq.edu.au>
 ========================================================================================
 */
 
